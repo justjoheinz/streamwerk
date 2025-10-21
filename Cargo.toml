@@ -1,0 +1,11 @@
+[workspace]
+resolver = "3"
+members = [
+    "etl", "etl-fs",
+]
+
+[workspace.dependencies]
+tokio = {version = "1.48.0", features = ["full"]}
+tokio-stream = "0.1"
+anyhow = "1"
+futures = "0.3"
