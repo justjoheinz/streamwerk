@@ -45,7 +45,7 @@
 use anyhow::*;
 use futures::stream::TryStreamExt;
 use std::{marker::PhantomData, pin::pin};
-use tokio_stream::{Stream, StreamExt};
+use tokio_stream::{Stream, StreamExt, adapters::Skip};
 
 /// The Extract phase of ETL - produces a stream of items from an input source.
 ///
@@ -78,6 +78,39 @@ pub trait Extract<Input, Output> {
     fn extract(&self, input: Input) -> Result<Self::StreamType>;
 }
 
+pub struct SkipExtractor<E> {
+    inner: E,
+    n: usize,
+}
+
+impl<E> SkipExtractor<E> {
+    pub fn new(inner: E, n: usize) -> Self {
+        Self { inner, n }
+    }
+}
+
+impl<Input, Output, E> Extract<Input, Output> for SkipExtractor<E>
+where
+    E: Extract<Input, Output>,
+    E::StreamType: Stream<Item = Result<Output>> + Send,
+{
+    type StreamType = Skip<E::StreamType>;
+
+    fn extract(&self, input: Input) -> Result<Self::StreamType> {
+        let stream = self.inner.extract(input)?;
+        Ok(tokio_stream::StreamExt::skip(stream, self.n))
+    }
+}
+
+pub trait ExtractExt<Input, Output>: Extract<Input, Output> + Sized {
+    fn skip(self, n: usize) -> SkipExtractor<Self> {
+        SkipExtractor::new(self, n)
+    }
+}
+
+impl<T, Input, Output> ExtractExt<Input, Output> for T where T: Extract<Input, Output> {}
+
+
 /// The Load phase of ETL - consumes items and performs side effects.
 ///
 /// This trait represents data sinks that write or store individual items.
@@ -103,6 +136,95 @@ pub trait Extract<Input, Output> {
 pub trait Load<Input> {
     /// Load a single item, performing side effects like writing to storage
     fn load(&self, item: Input) -> Result<()>;
+}
+
+/// Stateful transformation phase - maps inputs to outputs while maintaining state.
+///
+/// This trait extends the ETL framework to support transformations that need to
+/// accumulate information across multiple inputs. Unlike `Transform`, which is
+/// stateless, `StatefulTransform` maintains mutable state between calls.
+///
+/// # Type Parameters
+///
+/// * `Input` - The input type consumed by the transformation
+/// * `Output` - The type of items produced in the output stream
+///
+/// # Lifecycle
+///
+/// 1. `init_state()` - Called once to create initial state
+/// 2. `transform()` - Called for each input, can mutate state and emit outputs
+/// 3. `finalize()` - Called after all inputs processed, consumes state to emit final outputs
+///
+/// # Example
+///
+/// ```rust
+/// #![feature(impl_trait_in_assoc_type)]
+/// use etl::StatefulTransform;
+/// use tokio_stream::{iter, Stream};
+/// use anyhow::Result;
+///
+/// // Accumulate bytes into complete lines
+/// struct BytesToLines;
+///
+/// impl StatefulTransform<u8, String> for BytesToLines {
+///     type State = Vec<u8>;
+///
+///     type Stream<'a> = impl Stream<Item = Result<String>> + Send + 'a
+///     where
+///         Self: 'a,
+///         u8: 'a,
+///         String: 'a,
+///         Self::State: 'a;
+///
+///     fn init_state(&self) -> Self::State {
+///         Vec::new()
+///     }
+///
+///     fn transform<'a>(&'a self, state: &'a mut Self::State, input: u8)
+///         -> Result<Self::Stream<'a>>
+///     {
+///         state.push(input);
+///         if input == b'\n' {
+///             let line = String::from_utf8(state.clone())?;
+///             state.clear();
+///             Ok(iter(vec![Ok(line)]))
+///         } else {
+///             Ok(iter(vec![]))
+///         }
+///     }
+///
+///     fn finalize<'a>(&'a self, state: Self::State)
+///         -> Result<Self::Stream<'a>>
+///     {
+///         if state.is_empty() {
+///             Ok(iter(vec![]))
+///         } else {
+///             let line = String::from_utf8(state)?;
+///             Ok(iter(vec![Ok(line)]))
+///         }
+///     }
+/// }
+/// ```
+pub trait StatefulTransform<Input, Output> {
+    /// The type of state maintained across transformations
+    type State;
+
+    /// The stream type produced by transform operations
+    type Stream<'a>: Stream<Item = Result<Output>> + Send + 'a
+    where
+        Self: 'a,
+        Input: 'a,
+        Output: 'a,
+        Self::State: 'a;
+
+    /// Initialize the state for a new transformation session
+    fn init_state(&self) -> Self::State;
+
+    /// Transform an input while maintaining state, potentially emitting outputs
+    fn transform<'a>(&'a self, state: &'a mut Self::State, input: Input) -> Result<Self::Stream<'a>>;
+
+    /// Finalize the transformation, consuming state and emitting any remaining outputs
+    fn finalize<'a>(&'a self, state: Self::State) -> Result<Self::Stream<'a>>;
 }
 
 /// The Transform phase of ETL - maps input items to output streams.
@@ -239,6 +361,172 @@ pub trait Transform<Input, Output> {
             _phantom: PhantomData,
         }
     }
+
+    /// Skip the first n outputs from the stream.
+    ///
+    /// This method skips the first `n` items produced by the transformer's output stream.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use etl::{Transform, FnTransform};
+    /// use tokio_stream::iter;
+    /// use anyhow::Result;
+    ///
+    /// fn emit_multiple(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
+    ///     Ok(iter(vec![Ok(n), Ok(n + 1), Ok(n + 2)]))
+    /// }
+    ///
+    /// let skipped = FnTransform(emit_multiple).skip(1);
+    /// // Input: 5 -> outputs: 6, 7 (first output 5 is skipped)
+    /// ```
+    fn skip(self, n: usize) -> SkipTransform<Self, Output>
+    where
+        Self: Sized,
+    {
+        SkipTransform {
+            transform: self,
+            n,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Scans the output stream using the given initial state and function.
+    ///
+    /// This method applies a stateful transformation to each output item.
+    /// The function receives a mutable reference to the state and the current item,
+    /// and returns an optional output. If `None` is returned, the stream ends.
+    ///
+    /// # Arguments
+    ///
+    /// * `init` - The initial state value
+    /// * `f` - A function that takes a mutable state reference and an item,
+    ///         returning `Some(output)` to continue or `None` to end the stream
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use etl::{Transform, FnTransform};
+    /// # use tokio_stream::{Stream, iter};
+    /// # use anyhow::Result;
+    /// // Create a transformer that emits multiple values
+    /// fn emit_multiple(x: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
+    ///     Ok(iter(vec![Ok(x), Ok(x + 1), Ok(x + 2)]))
+    /// }
+    /// let running_sum = FnTransform(emit_multiple).scan(0, |acc, x| {
+    ///     *acc += x;
+    ///     Some(*acc)
+    /// });
+    /// // Input: 5 -> outputs: 5, 11, 18 (5, 5+6, 5+6+7)
+    /// ```
+    fn scan<St, F>(self, init: St, f: F) -> ScanTransform<Self, St, F, Output>
+    where
+        Self: Sized,
+        St: Send,
+        F: FnMut(&mut St, Output) -> Option<Output> + Send,
+    {
+        ScanTransform {
+            transform: self,
+            init,
+            f,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+/// Skip combinator for transformers.
+///
+/// Created by calling `Transform::skip()`. This type wraps a transformer
+/// and skips the first n items from its output stream.
+///
+/// # Type Parameters
+///
+/// * `T` - The underlying transformer
+/// * `OriginalOutput` - The output type
+pub struct SkipTransform<T, OriginalOutput> {
+    pub transform: T,
+    pub n: usize,
+    _phantom: PhantomData<OriginalOutput>,
+}
+
+impl<T, Input, Output> Transform<Input, Output> for SkipTransform<T, Output>
+where
+    T: Transform<Input, Output>,
+    Output: Send,
+{
+    type Stream<'a>
+        = Skip<T::Stream<'a>>
+    where
+        Self: 'a,
+        Input: 'a,
+        Output: 'a;
+
+    fn transform<'a>(&'a self, input: Input) -> Result<Self::Stream<'a>> {
+        let stream = self.transform.transform(input)?;
+        Ok(tokio_stream::StreamExt::skip(stream, self.n))
+    }
+}
+
+/// Scan combinator for transformers.
+///
+/// Created by calling `Transform::scan()`. This type wraps a transformer
+/// and applies a stateful transformation to each output item.
+///
+/// # Type Parameters
+///
+/// * `T` - The underlying transformer
+/// * `St` - The state type
+/// * `F` - The scanning function type
+/// * `OriginalOutput` - The output type
+pub struct ScanTransform<T, St, F, OriginalOutput> {
+    pub transform: T,
+    pub init: St,
+    pub f: F,
+    _phantom: PhantomData<OriginalOutput>,
+}
+
+impl<T, Input, Output, St, F> Transform<Input, Output> for ScanTransform<T, St, F, Output>
+where
+    T: Transform<Input, Output>,
+    Output: Send,
+    St: Clone + Send,
+    F: Clone + FnMut(&mut St, Output) -> Option<Output> + Send,
+{
+    type Stream<'a>
+        = impl Stream<Item = Result<Output>> + Send + 'a
+    where
+        Self: 'a,
+        Input: 'a,
+        Output: 'a,
+        St: 'a,
+        F: 'a;
+
+    fn transform<'a>(&'a self, input: Input) -> Result<Self::Stream<'a>> {
+        let stream = self.transform.transform(input)?;
+        let mut state = self.init.clone();
+        let mut f = self.f.clone();
+
+        let scanned = async_stream::stream! {
+            let mut pinned = pin!(stream);
+            while let Some(result) = pinned.next().await {
+                match result {
+                    std::result::Result::Ok(value) => {
+                        if let Some(output) = f(&mut state, value) {
+                            yield std::result::Result::Ok(output);
+                        } else {
+                            break;
+                        }
+                    }
+                    std::result::Result::Err(e) => {
+                        yield std::result::Result::Err(e);
+                        break;
+                    }
+                }
+            }
+        };
+
+        Ok(scanned)
+    }
 }
 
 /// Map combinator for transformers.
@@ -362,6 +650,7 @@ where
             .try_flatten())
     }
 }
+
 
 /// Wrapper that implements [`Extract`] for functions.
 ///
@@ -810,5 +1099,120 @@ mod tests {
         assert_eq!(final_results.len(), 2);
         assert_eq!(final_results[0], 15); // 2 * 2 + 1 = 5, 5 + 10 = 15
         assert_eq!(final_results[1], 17); // 3 * 2 + 1 = 7, 7 + 10 = 17
+    }
+
+    #[tokio::test]
+    async fn test_skip() {
+        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
+            Ok(iter(vec![Ok(n), Ok(n + 1), Ok(n + 2)]))
+        }
+
+        let transformer = FnTransform(emit_multiple).skip(1);
+
+        // Input: 5 produces stream [5, 6, 7], skip 1 gives [6, 7]
+        let result_stream = transformer.transform(5).unwrap();
+        let results: Vec<_> = result_stream.collect().await;
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].as_ref().unwrap(), &6);
+        assert_eq!(results[1].as_ref().unwrap(), &7);
+    }
+
+    #[tokio::test]
+    async fn test_skip_in_pipeline() {
+        use std::sync::{Arc, Mutex};
+
+        let results = Arc::new(Mutex::new(Vec::new()));
+        let results_clone = Arc::clone(&results);
+
+        let load_fn = move |n: i32| -> Result<()> {
+            results_clone.lock().unwrap().push(n);
+            Ok(())
+        };
+
+        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
+            Ok(iter(vec![Ok(n), Ok(n + 1), Ok(n + 2)]))
+        }
+
+        let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
+        let transformer = FnTransform(emit_multiple).skip(1); // Each input produces 3 outputs, skip first
+        let loader = FnLoad(load_fn);
+
+        let pipeline = EtlPipeline::new(extractor, transformer, loader);
+        pipeline.run(()).await.unwrap();
+
+        let final_results = results.lock().unwrap();
+        // Input 1: [1, 2, 3] -> skip 1 -> [2, 3]
+        // Input 2: [2, 3, 4] -> skip 1 -> [3, 4]
+        // Input 3: [3, 4, 5] -> skip 1 -> [4, 5]
+        assert_eq!(final_results.len(), 6);
+        assert_eq!(final_results[0], 2);
+        assert_eq!(final_results[1], 3);
+        assert_eq!(final_results[2], 3);
+        assert_eq!(final_results[3], 4);
+        assert_eq!(final_results[4], 4);
+        assert_eq!(final_results[5], 5);
+    }
+
+    #[tokio::test]
+    async fn test_scan() {
+        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
+            Ok(iter(vec![Ok(n), Ok(n + 1), Ok(n + 2)]))
+        }
+
+        let transformer = FnTransform(emit_multiple).scan(0, |acc, x| {
+            *acc += x;
+            Some(*acc)
+        });
+
+        // Input: 5 produces stream [5, 6, 7]
+        // Scan produces running sum: [5, 11, 18]
+        let result_stream = transformer.transform(5).unwrap();
+        let results: Vec<_> = result_stream.collect().await;
+        assert_eq!(results.len(), 3);
+        assert_eq!(results[0].as_ref().unwrap(), &5);  // 0 + 5
+        assert_eq!(results[1].as_ref().unwrap(), &11); // 5 + 6
+        assert_eq!(results[2].as_ref().unwrap(), &18); // 11 + 7
+    }
+
+    #[tokio::test]
+    async fn test_scan_in_pipeline() {
+        use std::sync::{Arc, Mutex};
+
+        let results = Arc::new(Mutex::new(Vec::new()));
+        let results_clone = Arc::clone(&results);
+
+        let load_fn = move |n: i32| -> Result<()> {
+            results_clone.lock().unwrap().push(n);
+            Ok(())
+        };
+
+        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
+            Ok(iter(vec![Ok(n), Ok(n + 1), Ok(n + 2)]))
+        }
+
+        let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
+        let transformer = FnTransform(emit_multiple).scan(0, |acc, x| {
+            *acc += x;
+            Some(*acc)
+        });
+        let loader = FnLoad(load_fn);
+
+        let pipeline = EtlPipeline::new(extractor, transformer, loader);
+        pipeline.run(()).await.unwrap();
+
+        let final_results = results.lock().unwrap();
+        // Input 1: [1, 2, 3] -> running sum (state starts at 0): [1, 3, 6]
+        // Input 2: [2, 3, 4] -> running sum (state resets to 0): [2, 5, 9]
+        // Input 3: [3, 4, 5] -> running sum (state resets to 0): [3, 7, 12]
+        assert_eq!(final_results.len(), 9);
+        assert_eq!(final_results[0], 1);
+        assert_eq!(final_results[1], 3);
+        assert_eq!(final_results[2], 6);
+        assert_eq!(final_results[3], 2);
+        assert_eq!(final_results[4], 5);
+        assert_eq!(final_results[5], 9);
+        assert_eq!(final_results[6], 3);
+        assert_eq!(final_results[7], 7);
+        assert_eq!(final_results[8], 12);
     }
 }

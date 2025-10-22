@@ -8,3 +8,4 @@ futures = {workspace = true}
 tokio = {workspace = true}
 tokio-stream = {workspace = true}
 anyhow = {workspace = true}
+async-stream = {workspace = true}
