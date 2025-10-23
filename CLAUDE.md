@@ -23,10 +23,11 @@ This is a workspace containing multiple library crates implementing an ETL (Extr
 
 ### Workspace Structure
 
-**etl**: Core ETL traits and types (`Extract`, `Transform`, `Load`, composition types)
-**etl-fs**: Filesystem extractors and loaders (reading/writing files, line-by-line processing)
-**etl-csv**: CSV and JSONL serialization/deserialization transformers
-**etl-debug**: Debug utilities for inspecting pipeline data flow
+**streamwerk**: Core ETL traits and types (`Extract`, `Transform`, `Load`, composition types)
+**streamwerk-fs**: Filesystem extractors and loaders (reading/writing files, line-by-line processing)
+**streamwerk-csv**: CSV and JSONL serialization/deserialization transformers
+**streamwerk-sse**: Server-Sent Events (SSE) extractor for consuming SSE streams
+**streamwerk-debug**: Debug utilities for inspecting pipeline data flow
 
 ### Core Design Patterns
 
@@ -42,7 +43,7 @@ This is a workspace containing multiple library crates implementing an ETL (Extr
 
 The `Compose::transform` implementation uses `then()` and `try_flatten()` to handle the nested stream structure - each item from the first stream is transformed into a new stream by the second transformer, then all streams are flattened into a single output stream.
 
-The `Extract` trait provides the source phase of ETL pipelines, with implementations for filesystem sources (etl-fs crate) and function wrappers (`FnExtract`). It includes combinators like `skip()` for stream manipulation.
+The `Extract` trait provides the source phase of ETL pipelines, with implementations for filesystem sources (streamwerk-fs crate) and function wrappers (`FnExtract`). It includes combinators like `skip()` for stream manipulation.
 
 ### Data Format Support
 

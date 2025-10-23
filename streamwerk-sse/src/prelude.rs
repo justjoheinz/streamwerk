@@ -1,18 +1,18 @@
 //! Prelude module for convenient imports.
 //!
-//! This module re-exports the most commonly used types from the etl-sse crate.
+//! This module re-exports the most commonly used types from the streamwerk-sse crate.
 //! You can import everything you need with a single use statement:
 //!
 //! ```rust
-//! use etl_sse::prelude::*;
+//! use streamwerk_sse::prelude::*;
 //! ```
 //!
 //! ## Example
 //!
 //! ```rust,no_run
 //! # #![feature(impl_trait_in_assoc_type)]
-//! use etl_sse::prelude::*;
-//! use etl::{Extract, EtlPipeline, FnTransform, FnLoad};
+//! use streamwerk_sse::prelude::*;
+//! use streamwerk::{Extract, EtlPipeline, FnTransform, FnLoad};
 //! use serde::Deserialize;
 //! use tokio_stream::{iter, Stream};
 //! use anyhow::Result;
@@ -23,7 +23,7 @@
 //! }
 //!
 //! fn transform(event: Event) -> Result<impl Stream<Item = Result<String>> + Send> {
-//!     Ok(etl::once_ok(event.message))
+//!     Ok(streamwerk::once_ok(event.message))
 //! }
 //!
 //! fn load(msg: String) -> Result<()> {

@@ -1,5 +1,5 @@
 [package]
-name = "etl"
+name = "streamwerk"
 version = "0.1.0"
 edition = "2024"
 description = "Composable async stream-based ETL framework with Extract, Transform, and Load phases"

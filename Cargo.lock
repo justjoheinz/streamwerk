@@ -256,75 +256,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "etl"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "futures",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "etl-csv"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "csv",
- "csv-line",
- "etl",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "etl-debug"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "etl",
- "etl-csv",
- "etl-fs",
- "etl-sse",
- "serde",
- "serde_json",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "etl-fs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "etl",
- "futures",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
-name = "etl-sse"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "etl",
- "futures",
- "reqwest",
- "serde",
- "serde_json",
- "sse-stream",
- "tokio",
- "tokio-stream",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1265,6 +1196,75 @@ name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
+
+[[package]]
+name = "streamwerk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "futures",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
+name = "streamwerk-csv"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "csv",
+ "csv-line",
+ "serde",
+ "serde_json",
+ "streamwerk",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
+name = "streamwerk-debug"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "streamwerk",
+ "streamwerk-csv",
+ "streamwerk-fs",
+ "streamwerk-sse",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
+name = "streamwerk-fs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "futures",
+ "streamwerk",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
+name = "streamwerk-sse"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "futures",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sse-stream",
+ "streamwerk",
+ "tokio",
+ "tokio-stream",
+]
 
 [[package]]
 name = "strsim"

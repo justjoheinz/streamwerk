@@ -12,8 +12,8 @@
 //!
 //! ```rust,no_run
 //! # #![feature(impl_trait_in_assoc_type)]
-//! use etl_sse::prelude::*;
-//! use etl::{EtlPipeline, FnTransform, FnLoad};
+//! use streamwerk_sse::prelude::*;
+//! use streamwerk::{EtlPipeline, FnTransform, FnLoad};
 //! use serde::Deserialize;
 //! use tokio_stream::{iter, Stream};
 //! use anyhow::Result;
@@ -25,7 +25,7 @@
 //! }
 //!
 //! fn transform(event: Event) -> Result<impl Stream<Item = Result<String>> + Send> {
-//!     Ok(etl::once_ok(format!("{}: {}", event.timestamp, event.message)))
+//!     Ok(streamwerk::once_ok(format!("{}: {}", event.timestamp, event.message)))
 //! }
 //!
 //! fn load(msg: String) -> Result<()> {
@@ -46,7 +46,7 @@
 //! ```
 
 use anyhow::{Context, Result};
-use etl::Extract;
+use streamwerk::Extract;
 use futures::StreamExt as FuturesStreamExt;
 use serde::de::DeserializeOwned;
 use sse_stream::SseStream;
@@ -98,8 +98,8 @@ impl Default for SseConfig {
 ///
 /// ```rust,no_run
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_sse::SseExtract;
-/// use etl::{EtlPipeline, FnTransform, FnLoad};
+/// use streamwerk_sse::SseExtract;
+/// use streamwerk::{EtlPipeline, FnTransform, FnLoad};
 /// use serde::Deserialize;
 /// use tokio_stream::{iter, Stream};
 /// use anyhow::Result;
@@ -111,7 +111,7 @@ impl Default for SseConfig {
 /// }
 ///
 /// fn transform(notif: Notification) -> Result<impl Stream<Item = Result<String>> + Send> {
-///     Ok(etl::once_ok(format!("Notification #{}: {}", notif.id, notif.message)))
+///     Ok(streamwerk::once_ok(format!("Notification #{}: {}", notif.id, notif.message)))
 /// }
 ///
 /// fn load(msg: String) -> Result<()> {
@@ -287,8 +287,8 @@ where
 ///
 /// ```rust,no_run
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_sse::{SseExtractWithType, SseEvent};
-/// use etl::{iter_ok, EtlPipeline, FnTransform, FnLoad};
+/// use streamwerk_sse::{SseExtractWithType, SseEvent};
+/// use streamwerk::{iter_ok, EtlPipeline, FnTransform, FnLoad};
 /// use serde::Deserialize;
 /// use tokio_stream::Stream;
 /// use anyhow::Result;
@@ -305,7 +305,7 @@ where
 ///     } else {
 ///         vec![] // Skip non-update events (empty stream)
 ///     };
-///     Ok(etl::iter_ok(items))
+///     Ok(streamwerk::iter_ok(items))
 /// }
 ///
 /// fn load(msg: String) -> Result<()> {

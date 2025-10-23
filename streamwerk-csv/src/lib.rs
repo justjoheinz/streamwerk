@@ -2,7 +2,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use anyhow::Result;
-use etl::Transform;
+use streamwerk::Transform;
 use serde::{Serialize, de::DeserializeOwned};
 use tokio_stream::Stream;
 
@@ -17,8 +17,8 @@ pub mod prelude;
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_csv::CsvSerializer;
-/// use etl::{EtlPipeline, FnExtract, FnLoad};
+/// use streamwerk_csv::CsvSerializer;
+/// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Serialize;
 /// use tokio_stream::{iter, Stream};
 /// use anyhow::Result;
@@ -30,7 +30,7 @@ pub mod prelude;
 /// }
 ///
 /// fn extract(_: ()) -> Result<impl Stream<Item = Result<Person>> + Send> {
-///     Ok(etl::once_ok(Person { name: "Alice".to_string(), age: 30 }))
+///     Ok(streamwerk::once_ok(Person { name: "Alice".to_string(), age: 30 }))
 /// }
 ///
 /// fn load(csv_line: String) -> Result<()> {
@@ -74,7 +74,7 @@ where
 
         // Remove trailing newline if present
         let csv_line = csv_line.trim_end_matches('\n').to_string();
-        Ok(etl::once_ok(csv_line))
+        Ok(streamwerk::once_ok(csv_line))
     }
 }
 
@@ -87,8 +87,8 @@ where
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_csv::CsvDeserializer;
-/// use etl::{EtlPipeline, FnExtract, FnLoad};
+/// use streamwerk_csv::CsvDeserializer;
+/// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Deserialize;
 /// use tokio_stream::{iter, Stream};
 /// use anyhow::Result;
@@ -100,7 +100,7 @@ where
 /// }
 ///
 /// fn extract(_: ()) -> Result<impl Stream<Item = Result<String>> + Send> {
-///     Ok(etl::once_ok("Alice,30".to_string()))
+///     Ok(streamwerk::once_ok("Alice,30".to_string()))
 /// }
 ///
 /// fn load(person: Person) -> Result<()> {
@@ -132,7 +132,7 @@ where
 
     fn transform<'a>(&'a self, input: String) -> Result<Self::Stream<'a>> {
         let value: T = csv_line::from_str(&input)?;
-        Ok(etl::once_ok(value))
+        Ok(streamwerk::once_ok(value))
     }
 }
 
@@ -145,8 +145,8 @@ where
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_csv::JsonlDeserializer;
-/// use etl::{EtlPipeline, FnExtract, FnLoad};
+/// use streamwerk_csv::JsonlDeserializer;
+/// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Deserialize;
 /// use tokio_stream::{iter, Stream};
 /// use anyhow::Result;
@@ -158,7 +158,7 @@ where
 /// }
 ///
 /// fn extract(_: ()) -> Result<impl Stream<Item = Result<String>> + Send> {
-///     Ok(etl::once_ok(r#"{"name":"Alice","age":30}"#.to_string()))
+///     Ok(streamwerk::once_ok(r#"{"name":"Alice","age":30}"#.to_string()))
 /// }
 ///
 /// fn load(person: Person) -> Result<()> {
@@ -190,7 +190,7 @@ where
 
     fn transform<'a>(&'a self, input: String) -> Result<Self::Stream<'a>> {
         let value: T = serde_json::from_str(&input)?;
-        Ok(etl::once_ok(value))
+        Ok(streamwerk::once_ok(value))
     }
 }
 
@@ -203,8 +203,8 @@ where
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use etl_csv::JsonlSerializer;
-/// use etl::{EtlPipeline, FnExtract, FnLoad};
+/// use streamwerk_csv::JsonlSerializer;
+/// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Serialize;
 /// use tokio_stream::{iter, Stream};
 /// use anyhow::Result;
@@ -216,7 +216,7 @@ where
 /// }
 ///
 /// fn extract(_: ()) -> Result<impl Stream<Item = Result<Person>> + Send> {
-///     Ok(etl::once_ok(Person { name: "Alice".to_string(), age: 30 }))
+///     Ok(streamwerk::once_ok(Person { name: "Alice".to_string(), age: 30 }))
 /// }
 ///
 /// fn load(json_line: String) -> Result<()> {
@@ -248,7 +248,7 @@ where
 
     fn transform<'a>(&'a self, input: T) -> Result<Self::Stream<'a>> {
         let json_line = serde_json::to_string(&input)?;
-        Ok(etl::once_ok(json_line))
+        Ok(streamwerk::once_ok(json_line))
     }
 }
 

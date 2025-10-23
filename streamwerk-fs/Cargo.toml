@@ -1,0 +1,14 @@
+[package]
+name = "streamwerk-fs"
+version = "0.1.0"
+edition = "2024"
+description = "Filesystem extractors and loaders for streamwerk (files, stdin, stdout)"
+keywords = ["streamwerk", "filesystem", "io", "stdin", "stdout"]
+
+[dependencies]
+streamwerk = { path = "../streamwerk" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
+async-stream = {workspace = true}

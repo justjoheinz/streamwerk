@@ -1,12 +1,12 @@
 [package]
-name = "etl-sse"
+name = "streamwerk-sse"
 version = "0.1.0"
 edition = "2024"
-description = "Server-Sent Events (SSE) extractor for the ETL framework"
-keywords = ["etl", "sse", "server-sent-events", "streaming", "http"]
+description = "Server-Sent Events (SSE) extractor for streamwerk"
+keywords = ["streamwerk", "sse", "server-sent-events", "streaming", "http"]
 
 [dependencies]
-etl = { path = "../etl" }
+streamwerk = { path = "../streamwerk" }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }

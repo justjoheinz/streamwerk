@@ -2,7 +2,7 @@
 #![feature(impl_trait_in_assoc_type)]
 
 use anyhow::Result;
-use etl::{Extract};
+use streamwerk::{Extract};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
@@ -95,7 +95,7 @@ pub struct FileLoad<T> {
 
 
 // Implementation for types that implement Display (like String, formatted output)
-impl<T: std::fmt::Display> etl::Load<T> for FileLoad<T> {
+impl<T: std::fmt::Display> streamwerk::Load<T> for FileLoad<T> {
     fn initialize(&self) -> impl std::future::Future<Output = Result<()>> + Send {
         let path = self.path.clone();
         let mode = self.mode;
@@ -184,7 +184,7 @@ impl<T> FileLoad<T> {
     }
 }
 
-impl<T: std::fmt::Display> etl::Load<T> for StdoutLoad {
+impl<T: std::fmt::Display> streamwerk::Load<T> for StdoutLoad {
     fn load(&self, item: T) -> Result<()> {
         println!("{}", item);
         Ok(())
