@@ -19,7 +19,7 @@ use anyhow::*;
 /// # Example
 ///
 /// ```rust
-/// use etl::{Load, FnLoad};
+/// use streamwerk::{Load, FnLoad};
 /// use anyhow::Result;
 ///
 /// fn write_to_db(item: i32) -> Result<()> {
@@ -65,7 +65,7 @@ pub trait Load<Input> {
 /// # Example
 ///
 /// ```rust
-/// use etl::FnLoad;
+/// use streamwerk::FnLoad;
 /// use anyhow::Result;
 ///
 /// fn save_to_db(item: i32) -> Result<()> {
@@ -87,14 +87,20 @@ pub struct FnLoad<F>(pub F);
 /// # Example
 ///
 /// ```rust
-/// use etl::{Load, WithHeader};
-/// use etl_fs::StdoutLoad;
+/// use streamwerk::prelude::*;
+/// use anyhow::Result;
+///
+/// // Example loader that prints to stdout
+/// struct StdoutLoad;
+/// impl Load<String> for StdoutLoad {
+///     fn load(&self, item: String) -> Result<()> {
+///         println!("{}", item);
+///         Ok(())
+///     }
+/// }
 ///
 /// // Stdout with header
 /// let loader = WithHeader::new(StdoutLoad, "Name,Age");
-///
-/// // File with CSV header
-/// // let loader = WithHeader::new(FileLoad::create("output.csv"), "name,age");
 /// ```
 pub struct WithHeader<L> {
     inner: L,

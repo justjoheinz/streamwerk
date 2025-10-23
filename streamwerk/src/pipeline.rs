@@ -22,7 +22,7 @@ use crate::{Extract, Load, Transform};
 /// # Example
 ///
 /// ```rust
-/// use etl::{FnExtract, FnTransform, FnLoad, EtlPipeline};
+/// use streamwerk::{FnExtract, FnTransform, FnLoad, EtlPipeline};
 /// use tokio_stream::iter;
 /// use anyhow::Result;
 ///

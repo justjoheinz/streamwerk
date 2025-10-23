@@ -21,7 +21,7 @@ use tokio_stream::{Stream, StreamExt};
 /// # Example
 ///
 /// ```rust
-/// use etl::{Transform, FnTransform};
+/// use streamwerk::{Transform, FnTransform};
 /// use tokio_stream::iter;
 /// use anyhow::Result;
 ///
@@ -51,7 +51,7 @@ pub trait Transform<Input, Output> {
     /// # Example
     ///
     /// ```rust
-    /// use etl::{iter_ok, Transform, FnTransform};
+    /// use streamwerk::{iter_ok, Transform, FnTransform};
     /// use anyhow::Result;
     ///
     /// fn double(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
@@ -85,8 +85,8 @@ pub trait Transform<Input, Output> {
     /// # Example
     ///
     /// ```rust
-    /// use etl::{Transform, FnTransform};
-    /// use etl::once_ok;
+    /// use streamwerk::{Transform, FnTransform};
+    /// use streamwerk::once_ok;
     /// use anyhow::Result;
     ///
     /// fn emit(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
@@ -116,8 +116,8 @@ pub trait Transform<Input, Output> {
     /// # Example
     ///
     /// ```rust
-    /// use etl::{Transform, FnTransform};
-    /// use etl::once_ok;
+    /// use streamwerk::{Transform, FnTransform};
+    /// use streamwerk::once_ok;
     /// use anyhow::Result;
     ///
     /// fn emit(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
@@ -154,7 +154,7 @@ pub trait Transform<Input, Output> {
     /// # Example
     ///
     /// ```
-    /// # use etl::{iter_ok, Transform, FnTransform};
+    /// # use streamwerk::{iter_ok, Transform, FnTransform};
     /// # use tokio_stream::Stream;
     /// # use anyhow::Result;
     /// // Create a transformer that emits multiple values
@@ -375,7 +375,7 @@ where
 /// # Example
 ///
 /// ```rust
-/// use etl::{Identity, Transform};
+/// use streamwerk::{Identity, Transform};
 ///
 /// // Use identity with filter to select items
 /// let filter_evens = Identity.filter(|n: &i32| n % 2 == 0);
@@ -411,7 +411,7 @@ where
 /// # Example
 ///
 /// ```rust
-/// use etl::FnTransform;
+/// use streamwerk::FnTransform;
 /// use tokio_stream::iter;
 /// use anyhow::Result;
 ///

@@ -11,7 +11,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use etl::{iter_ok, FnExtract, FnTransform, FnLoad, EtlPipeline};
+//! use streamwerk::{iter_ok, FnExtract, FnTransform, FnLoad, EtlPipeline};
 //! use anyhow::Result;
 //!
 //! fn extract_data(_: ()) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
@@ -68,7 +68,7 @@ use tokio_stream::Stream;
 /// # Example
 ///
 /// ```rust
-/// use etl::once_ok;
+/// use streamwerk::once_ok;
 /// use tokio_stream::StreamExt;
 ///
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
@@ -93,7 +93,7 @@ where
 /// # Example
 ///
 /// ```rust
-/// use etl::once_err;
+/// use streamwerk::once_err;
 /// use tokio_stream::StreamExt;
 /// use anyhow::anyhow;
 ///
@@ -120,7 +120,7 @@ where
 /// # Example
 ///
 /// ```rust
-/// use etl::iter_ok;
+/// use streamwerk::iter_ok;
 /// use tokio_stream::StreamExt;
 ///
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {

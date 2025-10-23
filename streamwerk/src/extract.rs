@@ -16,7 +16,7 @@ use tokio_stream::{Stream, adapters::{Skip, Take}};
 /// # Example
 ///
 /// ```rust
-/// use etl::{Extract, FnExtract};
+/// use streamwerk::{Extract, FnExtract};
 /// use tokio_stream::iter;
 /// use anyhow::Result;
 ///
@@ -118,7 +118,7 @@ impl<T, Input, Output> ExtractExt<Input, Output> for T where T: Extract<Input, O
 /// # Example
 ///
 /// ```rust
-/// use etl::FnExtract;
+/// use streamwerk::FnExtract;
 /// use tokio_stream::iter;
 /// use anyhow::Result;
 ///

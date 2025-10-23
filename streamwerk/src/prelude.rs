@@ -4,7 +4,7 @@
 //! You can import everything you need with a single use statement:
 //!
 //! ```rust
-//! use etl::prelude::*;
+//! use streamwerk::prelude::*;
 //! ```
 
 pub use crate::extract::{Extract, ExtractExt, FnExtract, SkipExtractor, TakeExtractor};
