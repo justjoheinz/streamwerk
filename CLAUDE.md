@@ -19,7 +19,14 @@ The toolchain configuration is in `rust-toolchain.toml`. The project uses Rust e
 
 ## Architecture
 
-This is a library crate implementing an ETL (Extract, Transform, Load) framework using async streams.
+This is a workspace containing multiple library crates implementing an ETL (Extract, Transform, Load) framework using async streams.
+
+### Workspace Structure
+
+**etl**: Core ETL traits and types (`Extract`, `Transform`, `Load`, composition types)
+**etl-fs**: Filesystem extractors and loaders (reading/writing files, line-by-line processing)
+**etl-csv**: CSV and JSONL serialization/deserialization transformers
+**etl-debug**: Debug utilities for inspecting pipeline data flow
 
 ### Core Design Patterns
 
@@ -35,5 +42,11 @@ This is a library crate implementing an ETL (Extract, Transform, Load) framework
 
 The `Compose::transform` implementation uses `then()` and `try_flatten()` to handle the nested stream structure - each item from the first stream is transformed into a new stream by the second transformer, then all streams are flattened into a single output stream.
 
-The `Extract` trait (partially defined) follows a similar pattern but appears less developed than `Transform`.
+The `Extract` trait provides the source phase of ETL pipelines, with implementations for filesystem sources (etl-fs crate) and function wrappers (`FnExtract`). It includes combinators like `skip()` for stream manipulation.
+
+### Data Format Support
+
+**CSV**: `CsvSerializer` and `CsvDeserializer` transforms handle CSV line serialization/deserialization using the `csv` and `csv-line` crates.
+
+**JSONL**: `JsonlSerializer` and `JsonlDeserializer` transforms handle JSON Lines format using `serde_json`. Note: `serde_json::to_string` produces compact single-line output by default, suitable for JSONL format.
 - When you use clippy and you fix one of the clippy errors or warnings, tell me what you want to fix and ask if I want that.

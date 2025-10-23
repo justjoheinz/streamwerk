@@ -8,6 +8,8 @@ use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio_stream::Stream;
 
+pub mod prelude;
+
 /// Extract step that opens a file and streams its content byte by byte.
 pub struct FileExtract;
 
@@ -57,4 +59,3 @@ impl Extract<PathBuf, String> for FileLineExtract {
         Ok(stream)
     }
 }
-

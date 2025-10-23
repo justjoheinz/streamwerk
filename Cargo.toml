@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "etl", "etl-csv", "etl-debug", "etl-fs",
+    "etl", "etl-csv", "etl-debug", "etl-fs", "etl-sse",
 ]
 
 [workspace.dependencies]
