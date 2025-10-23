@@ -8,10 +8,9 @@
 //! ```
 
 pub use crate::extract::{Extract, ExtractExt, FnExtract, SkipExtractor, TakeExtractor};
-pub use crate::load::{FnLoad, Load};
+pub use crate::load::{FnLoad, Load, WithHeader};
 pub use crate::transform::{
-    Compose, Filter, FnTransform, Identity, Map, ScanTransform, SkipTransform, TakeTransform,
-    Transform,
+    Compose, Filter, FnTransform, Identity, Map, ScanTransform, Transform,
 };
 pub use crate::pipeline::EtlPipeline;
 pub use crate::{iter_ok, once_err, once_ok};

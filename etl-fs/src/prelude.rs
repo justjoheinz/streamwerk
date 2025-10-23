@@ -7,4 +7,6 @@
 //! use etl_fs::prelude::*;
 //! ```
 
-pub use crate::{FileExtract, FileLineExtract};
+pub use crate::{
+    FileExtract, FileLineExtract, FileLoad, StdinLineExtract, StdoutLoad, WriteMode,
+};

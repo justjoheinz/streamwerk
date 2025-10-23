@@ -2,6 +2,8 @@
 name = "etl-sse"
 version = "0.1.0"
 edition = "2024"
+description = "Server-Sent Events (SSE) extractor for the ETL framework"
+keywords = ["etl", "sse", "server-sent-events", "streaming", "http"]
 
 [dependencies]
 etl = { path = "../etl" }

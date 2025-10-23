@@ -2,6 +2,8 @@
 name = "etl-csv"
 version = "0.1.0"
 edition = "2024"
+description = "CSV and JSONL serialization/deserialization transformers for the ETL framework"
+keywords = ["etl", "csv", "json", "jsonl", "serde"]
 
 [dependencies]
 etl = { path = "../etl" }

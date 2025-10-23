@@ -3,7 +3,7 @@
 use anyhow::*;
 use futures::stream::TryStreamExt;
 use std::{marker::PhantomData, pin::pin};
-use tokio_stream::{Stream, StreamExt, adapters::Skip};
+use tokio_stream::{Stream, StreamExt};
 
 /// The Transform phase of ETL - maps input items to output streams.
 ///
@@ -139,63 +139,6 @@ pub trait Transform<Input, Output> {
         }
     }
 
-    /// Skip the first n outputs from the stream.
-    ///
-    /// This method skips the first `n` items produced by the transformer's output stream.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use etl::{iter_ok, Transform, FnTransform};
-    /// use anyhow::Result;
-    ///
-    /// fn emit_multiple(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
-    ///     Ok(iter_ok(vec![n, n + 1, n + 2]))
-    /// }
-    ///
-    /// let skipped = FnTransform(emit_multiple).skip(1);
-    /// // Input: 5 -> outputs: 6, 7 (first output 5 is skipped)
-    /// ```
-    fn skip(self, n: usize) -> SkipTransform<Self, Output>
-    where
-        Self: Sized,
-    {
-        SkipTransform {
-            transform: self,
-            n,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Take only the first n outputs from the stream.
-    ///
-    /// This method limits the transformer's output stream to at most `n` items.
-    /// After `n` items have been emitted, the stream ends.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use etl::{iter_ok, Transform, FnTransform};
-    /// use anyhow::Result;
-    ///
-    /// fn emit_multiple(n: i32) -> Result<impl tokio_stream::Stream<Item = Result<i32>> + Send> {
-    ///     Ok(iter_ok(vec![n, n + 1, n + 2, n + 3]))
-    /// }
-    ///
-    /// let limited = FnTransform(emit_multiple).take(2);
-    /// // Input: 5 -> outputs: 5, 6 (only first 2 outputs, 7 and 8 are dropped)
-    /// ```
-    fn take(self, n: usize) -> TakeTransform<Self, Output>
-    where
-        Self: Sized,
-    {
-        TakeTransform {
-            transform: self,
-            n,
-            _phantom: PhantomData,
-        }
-    }
-
     /// Scans the output stream using the given initial state and function.
     ///
     /// This method applies a stateful transformation to each output item.
@@ -206,7 +149,7 @@ pub trait Transform<Input, Output> {
     ///
     /// * `init` - The initial state value
     /// * `f` - A function that takes a mutable state reference and an item,
-    ///         returning `Some(output)` to continue or `None` to end the stream
+    ///   returning `Some(output)` to continue or `None` to end the stream
     ///
     /// # Example
     ///
@@ -236,72 +179,6 @@ pub trait Transform<Input, Output> {
             f,
             _phantom: PhantomData,
         }
-    }
-}
-
-/// Skip combinator for transformers.
-///
-/// Created by calling `Transform::skip()`. This type wraps a transformer
-/// and skips the first n items from its output stream.
-///
-/// # Type Parameters
-///
-/// * `T` - The underlying transformer
-/// * `OriginalOutput` - The output type
-pub struct SkipTransform<T, OriginalOutput> {
-    pub transform: T,
-    pub n: usize,
-    _phantom: PhantomData<OriginalOutput>,
-}
-
-impl<T, Input, Output> Transform<Input, Output> for SkipTransform<T, Output>
-where
-    T: Transform<Input, Output>,
-    Output: Send,
-{
-    type Stream<'a>
-        = Skip<T::Stream<'a>>
-    where
-        Self: 'a,
-        Input: 'a,
-        Output: 'a;
-
-    fn transform<'a>(&'a self, input: Input) -> Result<Self::Stream<'a>> {
-        let stream = self.transform.transform(input)?;
-        Ok(tokio_stream::StreamExt::skip(stream, self.n))
-    }
-}
-
-/// Take combinator for transformers.
-///
-/// Created by calling `Transform::take()`. This type wraps a transformer
-/// and limits its output stream to at most n items.
-///
-/// # Type Parameters
-///
-/// * `T` - The underlying transformer
-/// * `OriginalOutput` - The output type
-pub struct TakeTransform<T, OriginalOutput> {
-    pub transform: T,
-    pub n: usize,
-    _phantom: PhantomData<OriginalOutput>,
-}
-
-impl<T, Input, Output> Transform<Input, Output> for TakeTransform<T, Output>
-where
-    T: Transform<Input, Output>,
-    Output: Send,
-{
-    type Stream<'a>
-        = impl Stream<Item = Result<Output>> + Send + 'a
-    where
-        Self: 'a,
-        Input: 'a,
-        Output: 'a;
-
-    fn transform<'a>(&'a self, input: Input) -> Result<Self::Stream<'a>> {
-        let stream = self.transform.transform(input)?;
-        Ok(tokio_stream::StreamExt::take(stream, self.n))
     }
 }
 

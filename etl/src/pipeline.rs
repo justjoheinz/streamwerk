@@ -67,9 +67,11 @@ impl<E, T, L> EtlPipeline<E, T, L> {
     /// Execute the ETL pipeline.
     ///
     /// This runs the complete pipeline:
-    /// 1. Extracts a stream from the input
-    /// 2. For each extracted item, applies transformation to produce output stream
-    /// 3. For each output item, calls load to perform side effects
+    /// 1. Initializes the loader
+    /// 2. Extracts a stream from the input
+    /// 3. For each extracted item, applies transformation to produce output stream
+    /// 4. For each output item, calls load to perform side effects
+    /// 5. Finalizes the loader with the pipeline result
     ///
     /// Returns `Ok(())` if all phases complete successfully, or the first error encountered.
     ///
@@ -83,20 +85,31 @@ impl<E, T, L> EtlPipeline<E, T, L> {
         L: Load<Output>,
         Mid: Send,
     {
-        let stream = self.extract.extract(input)?;
-        let mut stream = pin!(stream);
+        // Initialize the loader
+        self.load.initialize().await?;
 
-        while let Some(mid_result) = stream.next().await {
-            let mid = mid_result?;
-            let transformed_stream = self.transform.transform(mid)?;
-            let mut transformed_stream = pin!(transformed_stream);
+        // Execute the pipeline
+        let result: Result<()> = async {
+            let stream = self.extract.extract(input)?;
+            let mut stream = pin!(stream);
 
-            while let Some(output_result) = transformed_stream.next().await {
-                let output = output_result?;
-                self.load.load(output)?;
+            while let Some(mid_result) = stream.next().await {
+                let mid = mid_result?;
+                let transformed_stream = self.transform.transform(mid)?;
+                let mut transformed_stream = pin!(transformed_stream);
+
+                while let Some(output_result) = transformed_stream.next().await {
+                    let output = output_result?;
+                    self.load.load(output)?;
+                }
             }
-        }
 
-        Ok(())
+            Ok(())
+        }
+        .await;
+
+        // Finalize the loader with the pipeline result
+        self.load.finalize(&result).await?;
+        result
     }
 }

@@ -53,8 +53,7 @@ pub use extract::{Extract, ExtractExt, FnExtract, SkipExtractor, TakeExtractor};
 pub use load::{FnLoad, Load};
 pub use pipeline::EtlPipeline;
 pub use transform::{
-    Compose, Filter, FnTransform, Identity, Map, ScanTransform, SkipTransform, TakeTransform,
-    Transform,
+    Compose, Filter, FnTransform, Identity, Map, ScanTransform, Transform,
 };
 
 // Stream helpers
@@ -387,60 +386,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_skip() {
-        use tokio_stream::StreamExt;
-
-        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
-            Ok(iter_ok(vec![n, n + 1, n + 2]))
-        }
-
-        let transformer = FnTransform(emit_multiple).skip(1);
-
-        // Input: 5 produces stream [5, 6, 7], skip 1 gives [6, 7]
-        let result_stream = transformer.transform(5).unwrap();
-        let results: Vec<_> = result_stream.collect().await;
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].as_ref().unwrap(), &6);
-        assert_eq!(results[1].as_ref().unwrap(), &7);
-    }
-
-    #[tokio::test]
-    async fn test_skip_in_pipeline() {
-        use std::sync::{Arc, Mutex};
-
-        let results = Arc::new(Mutex::new(Vec::new()));
-        let results_clone = Arc::clone(&results);
-
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
-        };
-
-        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
-            Ok(iter_ok(vec![n, n + 1, n + 2]))
-        }
-
-        let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
-        let transformer = FnTransform(emit_multiple).skip(1); // Each input produces 3 outputs, skip first
-        let loader = FnLoad(load_fn);
-
-        let pipeline = EtlPipeline::new(extractor, transformer, loader);
-        pipeline.run(()).await.unwrap();
-
-        let final_results = results.lock().unwrap();
-        // Input 1: [1, 2, 3] -> skip 1 -> [2, 3]
-        // Input 2: [2, 3, 4] -> skip 1 -> [3, 4]
-        // Input 3: [3, 4, 5] -> skip 1 -> [4, 5]
-        assert_eq!(final_results.len(), 6);
-        assert_eq!(final_results[0], 2);
-        assert_eq!(final_results[1], 3);
-        assert_eq!(final_results[2], 3);
-        assert_eq!(final_results[3], 4);
-        assert_eq!(final_results[4], 4);
-        assert_eq!(final_results[5], 5);
-    }
-
-    #[tokio::test]
     async fn test_scan() {
         use tokio_stream::StreamExt;
 
@@ -503,97 +448,5 @@ mod tests {
         assert_eq!(final_results[6], 3);
         assert_eq!(final_results[7], 7);
         assert_eq!(final_results[8], 12);
-    }
-
-    #[tokio::test]
-    async fn test_take() {
-        use tokio_stream::StreamExt;
-
-        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
-            Ok(iter_ok(vec![n, n + 1, n + 2, n + 3]))
-        }
-
-        let transformer = FnTransform(emit_multiple).take(2);
-
-        // Input: 5 produces stream [5, 6, 7, 8], take 2 gives [5, 6]
-        let result_stream = transformer.transform(5).unwrap();
-        let results: Vec<_> = result_stream.collect().await;
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].as_ref().unwrap(), &5);
-        assert_eq!(results[1].as_ref().unwrap(), &6);
-    }
-
-    #[tokio::test]
-    async fn test_take_in_pipeline() {
-        use std::sync::{Arc, Mutex};
-
-        let results = Arc::new(Mutex::new(Vec::new()));
-        let results_clone = Arc::clone(&results);
-
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
-        };
-
-        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
-            Ok(iter_ok(vec![n, n + 1, n + 2, n + 3]))
-        }
-
-        let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
-        let transformer = FnTransform(emit_multiple).take(2); // Each input produces 4 outputs, take first 2
-        let loader = FnLoad(load_fn);
-
-        let pipeline = EtlPipeline::new(extractor, transformer, loader);
-        pipeline.run(()).await.unwrap();
-
-        let final_results = results.lock().unwrap();
-        // Input 1: [1, 2, 3, 4] -> take 2 -> [1, 2]
-        // Input 2: [2, 3, 4, 5] -> take 2 -> [2, 3]
-        // Input 3: [3, 4, 5, 6] -> take 2 -> [3, 4]
-        assert_eq!(final_results.len(), 6);
-        assert_eq!(final_results[0], 1);
-        assert_eq!(final_results[1], 2);
-        assert_eq!(final_results[2], 2);
-        assert_eq!(final_results[3], 3);
-        assert_eq!(final_results[4], 3);
-        assert_eq!(final_results[5], 4);
-    }
-
-    #[tokio::test]
-    async fn test_take_skip_composition() {
-        use std::sync::{Arc, Mutex};
-
-        let results = Arc::new(Mutex::new(Vec::new()));
-        let results_clone = Arc::clone(&results);
-
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
-        };
-
-        fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {
-            Ok(iter_ok(vec![n, n + 1, n + 2, n + 3, n + 4]))
-        }
-
-        let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
-        let transformer = FnTransform(emit_multiple)
-            .skip(1)  // Skip first output
-            .take(2); // Then take 2 outputs
-        let loader = FnLoad(load_fn);
-
-        let pipeline = EtlPipeline::new(extractor, transformer, loader);
-        pipeline.run(()).await.unwrap();
-
-        let final_results = results.lock().unwrap();
-        // Input 1: [1, 2, 3, 4, 5] -> skip 1 -> [2, 3, 4, 5] -> take 2 -> [2, 3]
-        // Input 2: [2, 3, 4, 5, 6] -> skip 1 -> [3, 4, 5, 6] -> take 2 -> [3, 4]
-        // Input 3: [3, 4, 5, 6, 7] -> skip 1 -> [4, 5, 6, 7] -> take 2 -> [4, 5]
-        assert_eq!(final_results.len(), 6);
-        assert_eq!(final_results[0], 2);
-        assert_eq!(final_results[1], 3);
-        assert_eq!(final_results[2], 3);
-        assert_eq!(final_results[3], 4);
-        assert_eq!(final_results[4], 4);
-        assert_eq!(final_results[5], 5);
     }
 }
