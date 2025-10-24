@@ -1,6 +1,35 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
+//! # Streamwerk Filesystem I/O
+//!
+//! This crate provides extractors and loaders for filesystem operations in streamwerk pipelines.
+//!
+//! ## Extractors
+//!
+//! - [`FileExtract`] - Read files byte-by-byte as a stream of u8
+//! - [`FileLineExtract`] - Read files line-by-line as a stream of String (efficient for text processing)
+//! - [`StdinLineExtract`] - Read from stdin line-by-line
+//!
+//! ## Loaders
+//!
+//! - [`StdoutLoad`] - Write items to stdout (works with any `Display` type)
+//! - [`FileLoad`] - Write items to files with configurable write modes:
+//!   - `FileLoad::create(path)` - Create new file or truncate existing
+//!   - `FileLoad::append(path)` - Append to existing file or create new
+//!
+//! ## Features
+//!
+//! - Async file I/O using `tokio::fs`
+//! - Buffered reading/writing with `BufReader` and `BufWriter` for efficient I/O
+//! - Lifecycle-managed file handles (opened in `initialize()`, flushed/closed in `finalize()`)
+//! - Supports the `WithHeader` decorator for prepending headers to file output
+//!
+//! All extractors implement the `Extract` trait and support combinators like `skip()` and `take()`.
+//! All loaders implement the `Load` trait with full lifecycle support.
+//!
+//! For complete usage examples, see the `streamwerk-debug` crate.
+
 use anyhow::Result;
 use streamwerk::{Extract};
 use std::path::PathBuf;

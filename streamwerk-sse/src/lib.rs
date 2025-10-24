@@ -1,10 +1,33 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
-//! # SSE Extract for ETL Framework
+//! # Streamwerk Server-Sent Events (SSE)
 //!
 //! This crate provides extractors for Server-Sent Events (SSE) streams,
-//! allowing SSE endpoints to be used as data sources in ETL pipelines.
+//! allowing SSE endpoints to be used as data sources in streamwerk pipelines.
+//!
+//! ## Features
+//!
+//! - Async SSE stream consumption using `reqwest` and `sse-stream`
+//! - Type-safe deserialization of event payloads with `serde`
+//! - Support for filtering events by event type
+//! - Configurable timeout and error handling
+//! - Automatic reconnection and event ID tracking
+//!
+//! ## Extractors
+//!
+//! - [`SseExtract`] - Extract SSE events as raw strings without deserialization
+//! - [`SseExtractRef`] - Extract SSE events with borrowed string references
+//! - [`SseExtractWithType<T>`] - Extract and automatically deserialize typed SSE events
+//!
+//! ## Types
+//!
+//! - [`SseEvent<T>`] - Wrapper containing event type, data payload, and optional event ID
+//! - [`SseConfig`] - Configuration for SSE connection (timeout, headers, etc.)
+//!
+//! All extractors implement the `Extract` trait and can be used as the first stage
+//! in any streamwerk pipeline. They produce streams of `SseEvent<T>` which can be
+//! filtered by event type or transformed using standard pipeline operations.
 //!
 //! ## Quick Start
 //!
