@@ -14,9 +14,36 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: streamwerk_test
+          POSTGRES_USER: streamwerk
+          POSTGRES_PASSWORD: streamwerk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up PostgreSQL test data
+      run: |
+        PGPASSWORD=streamwerk psql -h localhost -U streamwerk -d streamwerk_test -f streamwerk-sql/docker/init.sql
+        PGPASSWORD=streamwerk psql -h localhost -U streamwerk -d streamwerk_test -c "\COPY persons(name, age) FROM 'persons.csv' DELIMITER ',' CSV HEADER"
+
     - name: Build
       run: cargo build --verbose
+
     - name: Run tests
       run: cargo test --verbose
+
+    - name: Run integration tests with database
+      env:
+        DATABASE_URL: postgres://streamwerk:streamwerk@localhost/streamwerk_test
+      run: cargo test -p streamwerk-sql --tests -- --ignored --test-threads=1

@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
-    "streamwerk", "streamwerk-csv", "streamwerk-debug", "streamwerk-fs", "streamwerk-sse",
+    "streamwerk", "streamwerk-csv", "streamwerk-debug", "streamwerk-fs", "streamwerk-sse", "streamwerk-sql",
 ]
 
 

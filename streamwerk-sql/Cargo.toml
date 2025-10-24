@@ -1,0 +1,19 @@
+[package]
+name = "streamwerk-sql"
+version = "0.1.0"
+edition = "2024"
+description = "PostgreSQL extractors for streamwerk using Diesel"
+keywords = ["streamwerk", "database", "postgres", "diesel", "sql"]
+
+[dependencies]
+streamwerk = { path = "../streamwerk" }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+anyhow = { workspace = true }
+async-stream = { workspace = true }
+futures = { workspace = true }
+diesel = { version = "2.2", features = ["postgres"] }
+diesel-async = { version = "0.5", features = ["postgres", "bb8"] }
+
+[dev-dependencies]
+dotenvy = "0.15"
