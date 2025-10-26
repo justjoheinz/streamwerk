@@ -63,7 +63,7 @@
 //!     FnTransform(transform),
 //!     FnLoad(load)
 //! );
-//! // pipeline.run("https://example.com/events".to_string()).await?;
+//! // pipeline.run("https://example.com/events").await?;
 //! # Ok(())
 //! # }
 //! ```
@@ -149,7 +149,7 @@ impl Default for SseConfig {
 ///     FnTransform(transform),
 ///     FnLoad(load)
 /// );
-/// // pipeline.run("https://example.com/notifications".to_string()).await?;
+/// // pipeline.run("https://example.com/notifications").await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -182,13 +182,14 @@ impl<T> Default for SseExtract<T> {
     }
 }
 
-impl<T> Extract<String, T> for SseExtract<T>
+impl<T> Extract<&str, T> for SseExtract<T>
 where
     T: DeserializeOwned + Send + 'static,
 {
     type StreamType = impl Stream<Item = Result<T>> + Send;
 
-    fn extract(&self, url: String) -> Result<Self::StreamType> {
+    fn extract(&self, url: &str) -> Result<Self::StreamType> {
+        let url = url.to_string();
         let mut client_builder = reqwest::Client::builder();
 
         if let Some(timeout_secs) = self.config.timeout_secs {
@@ -294,7 +295,7 @@ where
     type StreamType = impl Stream<Item = Result<T>> + Send;
 
     fn extract(&self, url: &'a str) -> Result<Self::StreamType> {
-        self.inner.extract(url.to_string())
+        self.inner.extract(url)
     }
 }
 
@@ -343,7 +344,7 @@ where
 ///     FnTransform(filter_updates),
 ///     FnLoad(load)
 /// );
-/// // pipeline.run("https://example.com/stream".to_string()).await?;
+/// // pipeline.run("https://example.com/stream").await?;
 /// # Ok(())
 /// # }
 /// ```
@@ -376,13 +377,14 @@ impl<T> Default for SseExtractWithType<T> {
     }
 }
 
-impl<T> Extract<String, SseEvent<T>> for SseExtractWithType<T>
+impl<T> Extract<&str, SseEvent<T>> for SseExtractWithType<T>
 where
     T: DeserializeOwned + Send + 'static,
 {
     type StreamType = impl Stream<Item = Result<SseEvent<T>>> + Send;
 
-    fn extract(&self, url: String) -> Result<Self::StreamType> {
+    fn extract(&self, url: &str) -> Result<Self::StreamType> {
+        let url = url.to_string();
         let mut client_builder = reqwest::Client::builder();
 
         if let Some(timeout_secs) = self.config.timeout_secs {

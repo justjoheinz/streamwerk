@@ -1,15 +1,18 @@
 # streamwerk-sql
 
-PostgreSQL extractors for streamwerk using Diesel and diesel-async.
+PostgreSQL extractors and loaders for streamwerk using Diesel and diesel-async.
 
 ## Features
 
 - Type-safe query execution using Diesel's QueryDsl
 - Async streaming of database rows using diesel-async
-- Owned connection lifecycle - connection released when stream completes
+- Async insertion of items into database tables
+- Owned connection lifecycle - connection released when stream/pipeline completes
 - Compatible with all Diesel query builder types
 
-## Example
+## Examples
+
+### Extracting Data
 
 ```rust
 use streamwerk::{EtlPipeline, FnTransform, FnLoad};
@@ -55,6 +58,100 @@ async fn main() -> anyhow::Result<()> {
     let database_url = "postgres://localhost/mydb";
     let conn = AsyncPgConnection::establish(database_url).await?;
     pipeline.run(conn).await?;
+    Ok(())
+}
+```
+
+### Loading Data
+
+```rust
+use streamwerk::{EtlPipeline, FnExtract, FnTransform};
+use streamwerk_sql::PostgresLoad;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, AsyncConnection};
+
+// Define your table schema
+table! {
+    users (id) {
+        id -> Int4,
+        name -> Text,
+    }
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = users)]
+struct NewUser {
+    name: String,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Establish connection
+    let database_url = "postgres://localhost/mydb";
+    let conn = AsyncPgConnection::establish(database_url).await?;
+
+    // Create loader with connection
+    let loader = PostgresLoad::new(users::table, conn);
+
+    // Build pipeline that generates and inserts users
+    let pipeline = EtlPipeline::new(
+        FnExtract(|_| Ok(streamwerk::iter_ok(vec!["Alice", "Bob", "Carol"]))),
+        FnTransform(|name: &str| {
+            let user = NewUser {
+                name: name.to_string(),
+            };
+            Ok(streamwerk::once_ok(user))
+        }),
+        loader
+    );
+
+    // Run pipeline - connection will be released when done
+    pipeline.run(()).await?;
+    Ok(())
+}
+```
+
+### Extract-Transform-Load Pipeline
+
+Extract data from one table, transform it, and load into another:
+
+```rust
+use streamwerk::{EtlPipeline, FnTransform};
+use streamwerk_sql::{PostgresExtract, PostgresLoad};
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, AsyncConnection};
+
+// ... table and struct definitions ...
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let database_url = "postgres://localhost/mydb";
+
+    // Separate connections for extract and load
+    let extract_conn = AsyncPgConnection::establish(database_url).await?;
+    let load_conn = AsyncPgConnection::establish(database_url).await?;
+
+    // Query source data
+    let query = source_table::table
+        .filter(source_table::active.eq(true))
+        .select(SourceRecord::as_select());
+
+    let extractor = PostgresExtract::new(query);
+    let loader = PostgresLoad::new(dest_table::table, load_conn);
+
+    let pipeline = EtlPipeline::new(
+        extractor,
+        FnTransform(|record: SourceRecord| {
+            let dest_record = DestRecord {
+                name: record.name,
+                processed: true,
+            };
+            Ok(streamwerk::once_ok(dest_record))
+        }),
+        loader
+    );
+
+    pipeline.run(extract_conn).await?;
     Ok(())
 }
 ```

@@ -9,6 +9,10 @@
 //!
 //! - [`PostgresExtract`] - Execute Diesel queries against PostgreSQL and stream individual rows
 //!
+//! ## Loaders
+//!
+//! - [`PostgresLoad`] - Insert items into PostgreSQL tables
+//!
 //! ## Features
 //!
 //! - Type-safe query execution using Diesel's QueryDsl
@@ -95,7 +99,7 @@
 use anyhow::Result;
 use diesel::query_builder::QueryId;
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use streamwerk::Extract;
+use streamwerk::{Extract, Load};
 use tokio_stream::Stream;
 
 pub mod prelude;
@@ -173,5 +177,135 @@ where
         };
 
         Ok(stream)
+    }
+}
+
+/// Load step that inserts items into a PostgreSQL table.
+///
+/// This loader owns a database connection and uses it to insert each item
+/// into the specified table. The connection is held for the duration of the
+/// pipeline and released when the loader is dropped.
+///
+/// # Type Parameters
+///
+/// * `T` - The type of items to insert (must implement `Insertable`)
+/// * `Table` - The Diesel table type to insert into
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use streamwerk::{EtlPipeline, FnExtract, FnTransform};
+/// use streamwerk_sql::PostgresLoad;
+/// use diesel::prelude::*;
+/// use diesel_async::{AsyncPgConnection, AsyncConnection};
+///
+/// # table! {
+/// #     persons (id) {
+/// #         id -> Int4,
+/// #         name -> Text,
+/// #         age -> Int4,
+/// #     }
+/// # }
+/// #
+/// #[derive(Insertable)]
+/// #[diesel(table_name = persons)]
+/// struct NewPerson {
+///     name: String,
+///     age: i32,
+/// }
+///
+/// # async fn example() -> anyhow::Result<()> {
+/// // Establish connection
+/// let database_url = "postgres://localhost/mydb";
+/// let conn = AsyncPgConnection::establish(database_url).await?;
+///
+/// // Create loader with connection and table
+/// let loader = PostgresLoad::new(persons::table, conn);
+///
+/// // Build pipeline that generates and inserts persons
+/// let pipeline = EtlPipeline::new(
+///     FnExtract(|_| Ok(streamwerk::iter_ok(vec![1, 2, 3]))),
+///     FnTransform(|n: i32| {
+///         let person = NewPerson {
+///             name: format!("Person {}", n),
+///             age: 20 + n,
+///         };
+///         Ok(streamwerk::once_ok(person))
+///     }),
+///     loader
+/// );
+///
+/// // Run pipeline - connection will be released when pipeline completes
+/// pipeline.run(()).await?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct PostgresLoad<T, Table> {
+    table: Table,
+    connection: std::sync::Arc<tokio::sync::Mutex<Option<AsyncPgConnection>>>,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T, Table> PostgresLoad<T, Table>
+where
+    Table: Clone,
+{
+    /// Create a new PostgreSQL loader with a connection and table.
+    ///
+    /// The loader takes ownership of the connection, which will be released
+    /// when the loader is dropped.
+    ///
+    /// # Arguments
+    ///
+    /// * `table` - The Diesel table to insert into
+    /// * `connection` - The PostgreSQL connection to use
+    pub fn new(table: Table, connection: AsyncPgConnection) -> Self {
+        Self {
+            table,
+            connection: std::sync::Arc::new(tokio::sync::Mutex::new(Some(connection))),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T, Table> Load<T> for PostgresLoad<T, Table>
+where
+    T: diesel::Insertable<Table> + Send + 'static,
+    Table: diesel::Table + Clone + Send + Sync + 'static,
+    Table: QueryId,
+    Table::FromClause: Send,
+    <T as diesel::Insertable<Table>>::Values: Send + QueryId,
+    diesel::query_builder::InsertStatement<Table, <T as diesel::Insertable<Table>>::Values>:
+        diesel_async::methods::ExecuteDsl<AsyncPgConnection>,
+{
+    fn load(&self, item: T) -> Result<()> {
+        let connection = self.connection.clone();
+        let table = self.table.clone();
+
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let mut guard = connection.lock().await;
+                let conn = guard.as_mut().ok_or_else(|| anyhow::anyhow!("Connection not available"))?;
+
+                diesel_async::RunQueryDsl::execute(
+                    diesel::insert_into(table).values(item),
+                    conn
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to insert into database: {}", e))?;
+
+                Ok(())
+            })
+        })
+    }
+
+    fn finalize(&self, _result: &Result<()>) -> impl std::future::Future<Output = Result<()>> + Send {
+        let connection = self.connection.clone();
+
+        async move {
+            // Drop the connection
+            *connection.lock().await = None;
+            Ok(())
+        }
     }
 }

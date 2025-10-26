@@ -151,7 +151,7 @@ async fn run_sse_sample() -> Result<()> {
 
     // Run the SSE pipeline
     sse_pipeline
-        .run("https://mastodon.arroyo.dev/api/v1/streaming/public".to_string())
+        .run("https://mastodon.arroyo.dev/api/v1/streaming/public")
         .await?;
 
     Ok(())

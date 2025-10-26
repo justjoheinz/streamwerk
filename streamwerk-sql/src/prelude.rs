@@ -6,4 +6,4 @@
 //! use streamwerk_sql::prelude::*;
 //! ```
 
-pub use crate::PostgresExtract;
+pub use crate::{PostgresExtract, PostgresLoad};

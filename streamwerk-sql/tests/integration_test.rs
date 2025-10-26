@@ -4,8 +4,8 @@
 
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, AsyncPgConnection};
-use streamwerk::{Extract, EtlPipeline, ExtractExt, FnLoad, FnTransform};
-use streamwerk_sql::PostgresExtract;
+use streamwerk::{Extract, EtlPipeline, ExtractExt, FnExtract, FnLoad, FnTransform};
+use streamwerk_sql::{PostgresExtract, PostgresLoad};
 use std::sync::{Arc, Mutex};
 use tokio_stream::StreamExt;
 
@@ -185,4 +185,128 @@ async fn test_postgres_extract_direct_stream_usage() {
     }
 
     assert!(count > 0, "Should have persons under 30");
+}
+
+#[derive(Insertable)]
+#[diesel(table_name = persons)]
+struct NewPerson {
+    name: String,
+    age: i32,
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_postgres_load_insert_persons() {
+    let database_url = get_database_url()
+        .expect("DATABASE_URL must be set to run this test");
+
+    // Connect and create loader
+    let conn = AsyncPgConnection::establish(&database_url)
+        .await
+        .expect("Failed to connect to database");
+
+    let loader = PostgresLoad::new(persons::table, conn);
+
+    // Count persons before insert
+    let count_before = {
+        let conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+        let query = persons::table.select(diesel::dsl::count_star());
+        let extractor = PostgresExtract::<_, i64>::new(query);
+        let stream = extractor.extract(conn).unwrap();
+        tokio::pin!(stream);
+        stream.next().await.unwrap().unwrap()
+    };
+
+    // Build pipeline that inserts new persons
+    let pipeline = EtlPipeline::new(
+        FnExtract(|_| Ok(streamwerk::iter_ok(vec![100, 101, 102]))),
+        FnTransform(|n: i32| {
+            let person = NewPerson {
+                name: format!("Test Person {}", n),
+                age: n,
+            };
+            Ok(streamwerk::once_ok(person))
+        }),
+        loader
+    );
+
+    // Run pipeline
+    pipeline.run(()).await.expect("Pipeline failed");
+
+    // Verify persons were inserted
+    let count_after = {
+        let conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+        let query = persons::table.select(diesel::dsl::count_star());
+        let extractor = PostgresExtract::<_, i64>::new(query);
+        let stream = extractor.extract(conn).unwrap();
+        tokio::pin!(stream);
+        stream.next().await.unwrap().unwrap()
+    };
+
+    assert_eq!(count_after, count_before + 3, "Should have inserted 3 persons");
+
+    // Clean up - delete test persons
+    {
+        let mut conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+        diesel_async::RunQueryDsl::execute(
+            diesel::delete(persons::table.filter(persons::name.like("Test Person%"))),
+            &mut conn
+        )
+        .await
+        .expect("Failed to clean up test data");
+    }
+}
+
+#[tokio::test]
+#[ignore]
+async fn test_postgres_extract_and_load_pipeline() {
+    let database_url = get_database_url()
+        .expect("DATABASE_URL must be set to run this test");
+
+    // Extract persons with age > 65, transform to NewPerson with incremented age, insert back
+    let extract_conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+    let load_conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+
+    let query = persons::table
+        .filter(persons::age.gt(65))
+        .select(Person::as_select())
+        .limit(2);
+
+    let extractor = PostgresExtract::<_, Person>::new(query);
+    let loader = PostgresLoad::new(persons::table, load_conn);
+
+    let pipeline = EtlPipeline::new(
+        extractor,
+        FnTransform(|person: Person| {
+            let new_person = NewPerson {
+                name: format!("{} (copy)", person.name),
+                age: person.age + 1,
+            };
+            Ok(streamwerk::once_ok(new_person))
+        }),
+        loader
+    );
+
+    pipeline.run(extract_conn).await.expect("Pipeline failed");
+
+    // Verify copies were created
+    let mut conn = AsyncPgConnection::establish(&database_url).await.unwrap();
+    let copies: Vec<Person> = diesel_async::RunQueryDsl::load(
+        persons::table
+            .filter(persons::name.like("% (copy)"))
+            .select(Person::as_select()),
+        &mut conn
+    )
+    .await
+    .expect("Failed to load copies");
+
+    assert_eq!(copies.len(), 2, "Should have created 2 copies");
+
+    // Clean up
+    diesel_async::RunQueryDsl::execute(
+        diesel::delete(persons::table.filter(persons::name.like("% (copy)"))),
+        &mut conn
+    )
+    .await
+    .expect("Failed to clean up test data");
 }

@@ -38,7 +38,7 @@
 //!     FnTransform(transform),
 //!     FnLoad(load)
 //! );
-//! // pipeline.run("https://example.com/events".to_string()).await?;
+//! // pipeline.run("https://example.com/events").await?;
 //! # Ok(())
 //! # }
 //! ```
