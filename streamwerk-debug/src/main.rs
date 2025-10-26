@@ -5,7 +5,7 @@ use streamwerk_csv::prelude::*;
 use streamwerk_fs::prelude::*;
 use streamwerk_sse::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Person {
@@ -47,7 +47,7 @@ async fn run_csv_sample() -> Result<()> {
     );
 
     // Run the pipeline
-    pipeline.run(PathBuf::from("persons.csv")).await?;
+    pipeline.run(Path::new("persons.csv")).await?;
 
     Ok(())
 }
@@ -88,7 +88,7 @@ async fn run_file_sample() -> Result<()> {
     );
 
     // Run the pipeline
-    pipeline.run(PathBuf::from("persons.csv")).await?;
+    pipeline.run(Path::new("persons.csv")).await?;
 
     println!("Filtered persons written to output.csv");
 

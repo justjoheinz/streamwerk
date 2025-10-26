@@ -32,7 +32,7 @@
 
 use anyhow::Result;
 use streamwerk::{Extract};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio_stream::Stream;
@@ -42,12 +42,12 @@ pub mod prelude;
 /// Extract step that opens a file and streams its content byte by byte.
 pub struct FileExtract;
 
-impl Extract<PathBuf, u8> for FileExtract {
-    type StreamType = impl Stream<Item = Result<u8>> + Send;
+impl<'a> Extract<&'a Path, u8> for FileExtract {
+    type StreamType = impl Stream<Item = Result<u8>> + Send + 'a;
 
-    fn extract(&self, path: PathBuf) -> Result<Self::StreamType> {
+    fn extract(&self, path: &'a Path) -> Result<Self::StreamType> {
         let stream = async_stream::stream! {
-            let file = File::open(&path).await?;
+            let file = File::open(path).await?;
             let mut reader = BufReader::new(file);
             let mut buffer = [0u8; 1];
 
@@ -69,14 +69,14 @@ impl Extract<PathBuf, u8> for FileExtract {
 /// Uses tokio's BufReader::lines() for efficient line-based reading.
 pub struct FileLineExtract;
 
-impl Extract<PathBuf, String> for FileLineExtract {
-    type StreamType = impl Stream<Item = Result<String>> + Send;
+impl<'a> Extract<&'a Path, String> for FileLineExtract {
+    type StreamType = impl Stream<Item = Result<String>> + Send + 'a;
 
-    fn extract(&self, path: PathBuf) -> Result<Self::StreamType> {
+    fn extract(&self, path: &'a Path) -> Result<Self::StreamType> {
         use tokio::io::AsyncBufReadExt;
 
         let stream = async_stream::stream! {
-            let file = File::open(&path).await?;
+            let file = File::open(path).await?;
             let reader = BufReader::new(file);
             let mut lines = reader.lines();
 
