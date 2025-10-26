@@ -194,7 +194,7 @@ struct NewPerson {
     age: i32,
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_postgres_load_insert_persons() {
     let database_url = get_database_url()
@@ -257,7 +257,7 @@ async fn test_postgres_load_insert_persons() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn test_postgres_extract_and_load_pipeline() {
     let database_url = get_database_url()

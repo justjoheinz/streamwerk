@@ -35,7 +35,7 @@ jobs:
     - name: Set up PostgreSQL test data
       run: |
         PGPASSWORD=streamwerk psql -h localhost -U streamwerk -d streamwerk_test -f streamwerk-sql/docker/init.sql
-        PGPASSWORD=streamwerk psql -h localhost -U streamwerk -d streamwerk_test -c "\COPY persons(name, age) FROM 'persons.csv' DELIMITER ',' CSV HEADER"
+        PGPASSWORD=streamwerk psql -h localhost -U streamwerk -d streamwerk_test -c "\COPY persons(name, age) FROM 'streamwerk-sql/docker/persons.csv' DELIMITER ',' CSV HEADER"
 
     - name: Build
       run: cargo build --verbose
