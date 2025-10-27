@@ -9,7 +9,7 @@ members = [
 edition = "2024"
 authors = ["Markus Klink <justjoheinz@gmail.com>"]
 repository = "https://github.com/justjoheinz/streamwerk"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 rust-version = "1.92"
 version = "0.0.1"
 
