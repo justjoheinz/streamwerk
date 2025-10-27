@@ -6,19 +6,17 @@
 //! This crate provides transformers for CSV and JSON Lines serialization/deserialization
 //! in streamwerk pipelines.
 //!
-//! ## Transformers
-//!
-//! ### CSV
+//! # CSV Transformers
 //!
 //! - [`CsvSerializer`] - Serialize Rust structs to CSV line strings
 //! - [`CsvDeserializer`] - Deserialize CSV line strings to Rust structs
 //!
-//! ### JSON Lines (JSONL)
+//! # JSON Lines (JSONL) Transformers
 //!
 //! - [`JsonlSerializer`] - Serialize Rust structs to JSON line strings
 //! - [`JsonlDeserializer`] - Deserialize JSON line strings to Rust structs
 //!
-//! ## Features
+//! # Features
 //!
 //! - Serde-based serialization/deserialization for any serde-compatible type
 //! - No headers in serialized output (use `WithHeader` decorator for headers)
@@ -36,6 +34,10 @@ use serde::{Serialize, de::DeserializeOwned};
 use tokio_stream::Stream;
 
 pub mod prelude;
+
+// ============================================================================
+// CSV Transformers
+// ============================================================================
 
 /// Transform that serializes CSV-serializable types into CSV line strings.
 ///
@@ -164,6 +166,10 @@ where
         Ok(streamwerk::once_ok(value))
     }
 }
+
+// ============================================================================
+// JSON Lines (JSONL) Transformers
+// ============================================================================
 
 /// Transform that deserializes JSONL (JSON Lines) strings into typed structures.
 ///

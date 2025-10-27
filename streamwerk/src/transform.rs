@@ -1,9 +1,31 @@
 //! Transform phase of ETL - maps input items to output streams.
+//!
+//! # Core Trait
+//!
+//! - [`Transform`] - Main trait for transforming inputs into output streams
+//!
+//! # Base Transformers
+//!
+//! - [`Identity`] - Pass-through transformer (no-op)
+//! - [`FnTransform`] - Wrap functions as transformers
+//!
+//! # Transform Combinators
+//!
+//! Combinators that enhance or compose transformers:
+//!
+//! - [`Compose`] - Chain two transformers sequentially
+//! - [`Map`] - Apply function to each output item
+//! - [`Filter`] - Filter output items by predicate
+//! - [`ScanTransform`] - Stateful transformation with accumulator
 
 use anyhow::*;
 use futures::stream::TryStreamExt;
 use std::{marker::PhantomData, pin::pin};
 use tokio_stream::{Stream, StreamExt};
+
+// ============================================================================
+// Core Trait
+// ============================================================================
 
 /// The Transform phase of ETL - maps input items to output streams.
 ///
@@ -181,6 +203,10 @@ pub trait Transform<Input, Output> {
         }
     }
 }
+
+// ============================================================================
+// Transform Combinators
+// ============================================================================
 
 /// Scan combinator for transformers.
 ///
@@ -365,6 +391,10 @@ where
             .try_flatten())
     }
 }
+
+// ============================================================================
+// Base Transformers
+// ============================================================================
 
 /// Identity transformer that passes through its input as a single-item stream.
 ///

@@ -1,7 +1,9 @@
 [package]
 name = "streamwerk-csv"
-version = "0.1.0"
 edition = "2024"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
 description = "CSV and JSONL serialization/deserialization transformers for streamwerk"
 keywords = ["streamwerk", "csv", "json", "jsonl", "serde"]
 

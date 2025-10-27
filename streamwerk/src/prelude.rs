@@ -7,8 +7,13 @@
 //! use streamwerk::prelude::*;
 //! ```
 
-pub use crate::extract::{Extract, ExtractExt, FnExtract, SkipExtractor, TakeExtractor};
-pub use crate::load::{FnLoad, Load, WithHeader};
+pub use crate::extract::{
+    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, LinesExtract, MapExtract,
+    ReadExtract, SkipExtractor, StdinExtract, TakeExtractor,
+};
+pub use crate::load::{
+    BatchLoad, FilterLoad, FnLoad, Load, MapLoad, PrefixLoad, SuffixLoad, WithHeader,
+};
 pub use crate::transform::{
     Compose, Filter, FnTransform, Identity, Map, ScanTransform, Transform,
 };

@@ -5,20 +5,20 @@
 //!
 //! This crate provides extractors and loaders for filesystem operations in streamwerk pipelines.
 //!
-//! ## Extractors
+//! # Extractors
 //!
 //! - [`FileExtract`] - Read files byte-by-byte as a stream of u8
 //! - [`FileLineExtract`] - Read files line-by-line as a stream of String (efficient for text processing)
 //! - [`StdinLineExtract`] - Read from stdin line-by-line
 //!
-//! ## Loaders
+//! # Loaders
 //!
 //! - [`StdoutLoad`] - Write items to stdout (works with any `Display` type)
 //! - [`FileLoad`] - Write items to files with configurable write modes:
 //!   - `FileLoad::create(path)` - Create new file or truncate existing
 //!   - `FileLoad::append(path)` - Append to existing file or create new
 //!
-//! ## Features
+//! # Features
 //!
 //! - Async file I/O using `tokio::fs`
 //! - Buffered reading/writing with `BufReader` and `BufWriter` for efficient I/O
@@ -31,15 +31,21 @@
 //! For complete usage examples, see the `streamwerk-debug` crate.
 
 use anyhow::Result;
-use streamwerk::{Extract};
+use streamwerk::{Extract, LinesExtract, ReadExtract, StdinExtract};
 use std::path::{Path, PathBuf};
 use tokio::fs::File;
-use tokio::io::{AsyncReadExt, BufReader};
+use tokio::io::BufReader;
 use tokio_stream::Stream;
 
 pub mod prelude;
 
+// ============================================================================
+// Extractors
+// ============================================================================
+
 /// Extract step that opens a file and streams its content byte by byte.
+///
+/// This is implemented by opening the file and delegating to `ReadExtract`.
 pub struct FileExtract;
 
 impl<'a> Extract<&'a Path, u8> for FileExtract {
@@ -47,16 +53,19 @@ impl<'a> Extract<&'a Path, u8> for FileExtract {
 
     fn extract(&self, path: &'a Path) -> Result<Self::StreamType> {
         let stream = async_stream::stream! {
-            let file = File::open(path).await?;
-            let mut reader = BufReader::new(file);
-            let mut buffer = [0u8; 1];
+            match File::open(path).await {
+                Ok(file) => {
+                    let read_stream = ReadExtract.extract(file)?;
+                    let mut pinned = std::pin::pin!(read_stream);
 
-            loop {
-                let n = reader.read(&mut buffer).await?;
-                if n == 0 {
-                    break;
+                    use tokio_stream::StreamExt;
+                    while let Some(result) = pinned.next().await {
+                        yield result;
+                    }
                 }
-                yield Ok(buffer[0]);
+                Err(e) => {
+                    yield Err(anyhow::anyhow!("Failed to open file: {}", e));
+                }
             }
         };
 
@@ -93,8 +102,48 @@ impl<'a> Extract<&'a Path, String> for FileLineExtract {
 /// Extract step that reads from stdin and streams its content line by line.
 ///
 /// Takes `()` as input (since stdin is always available) and produces a stream of lines.
+/// This is implemented by wrapping `StdinExtract` with `LinesExtract`.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use streamwerk_fs::StdinLineExtract;
+/// use streamwerk::Extract;
+///
+/// # #[tokio::main]
+/// # async fn main() -> anyhow::Result<()> {
+/// let extractor = StdinLineExtract::new();
+/// let stream = extractor.extract(())?;
+/// // Stream will yield lines from stdin
+/// # Ok(())
+/// # }
+/// ```
 pub struct StdinLineExtract;
 
+impl StdinLineExtract {
+    /// Create a new StdinLineExtract.
+    pub fn new() -> LinesExtract<StdinExtract> {
+        LinesExtract::new(StdinExtract)
+    }
+}
+
+impl Default for StdinLineExtract {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl Extract<(), String> for StdinLineExtract {
+    type StreamType = <LinesExtract<StdinExtract> as Extract<(), String>>::StreamType;
+
+    fn extract(&self, input: ()) -> Result<Self::StreamType> {
+        Self::new().extract(input)
+    }
+}
+
+// ============================================================================
+// Loaders
+// ============================================================================
 
 /// Load step that writes items to stdout.
 ///
@@ -217,25 +266,5 @@ impl<T: std::fmt::Display> streamwerk::Load<T> for StdoutLoad {
     fn load(&self, item: T) -> Result<()> {
         println!("{}", item);
         Ok(())
-    }
-}
-
-impl Extract<(), String> for StdinLineExtract {
-    type StreamType = impl Stream<Item = Result<String>> + Send;
-
-    fn extract(&self, _input: ()) -> Result<Self::StreamType> {
-        use tokio::io::AsyncBufReadExt;
-
-        let stream = async_stream::stream! {
-            let stdin = tokio::io::stdin();
-            let reader = BufReader::new(stdin);
-            let mut lines = reader.lines();
-
-            while let Some(line) = lines.next_line().await? {
-                yield Ok(line);
-            }
-        };
-
-        Ok(stream)
     }
 }

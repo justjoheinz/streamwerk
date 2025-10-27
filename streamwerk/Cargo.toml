@@ -1,6 +1,8 @@
 [package]
 name = "streamwerk"
-version = "0.1.0"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
 edition = "2024"
 description = "Composable async stream-based ETL framework with Extract, Transform, and Load phases"
 keywords = ["etl", "pipeline", "stream", "async", "data-processing"]

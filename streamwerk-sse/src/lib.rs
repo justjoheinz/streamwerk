@@ -6,7 +6,7 @@
 //! This crate provides extractors for Server-Sent Events (SSE) streams,
 //! allowing SSE endpoints to be used as data sources in streamwerk pipelines.
 //!
-//! ## Features
+//! # Features
 //!
 //! - Async SSE stream consumption using `reqwest` and `sse-stream`
 //! - Type-safe deserialization of event payloads with `serde`
@@ -14,13 +14,13 @@
 //! - Configurable timeout and error handling
 //! - Automatic reconnection and event ID tracking
 //!
-//! ## Extractors
+//! # Extractors
 //!
 //! - [`SseExtract`] - Extract SSE events as raw strings without deserialization
 //! - [`SseExtractRef`] - Extract SSE events with borrowed string references
 //! - [`SseExtractWithType<T>`] - Extract and automatically deserialize typed SSE events
 //!
-//! ## Types
+//! # Types
 //!
 //! - [`SseEvent<T>`] - Wrapper containing event type, data payload, and optional event ID
 //! - [`SseConfig`] - Configuration for SSE connection (timeout, headers, etc.)
@@ -78,6 +78,10 @@ use tokio_stream::Stream;
 
 pub mod prelude;
 
+// ============================================================================
+// Types
+// ============================================================================
+
 /// Wrapper type that includes both the SSE event type and deserialized payload.
 ///
 /// This is useful when you need to filter or process events based on their type
@@ -106,6 +110,10 @@ impl Default for SseConfig {
         }
     }
 }
+
+// ============================================================================
+// Extractors
+// ============================================================================
 
 /// Extractor for Server-Sent Events (SSE) streams.
 ///

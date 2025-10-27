@@ -1,6 +1,8 @@
 [package]
 name = "streamwerk-fs"
-version = "0.1.0"
+version = {workspace = true}
+authors.workspace = true
+repository.workspace = true
 edition = "2024"
 description = "Filesystem extractors and loaders for streamwerk (files, stdin, stdout)"
 keywords = ["streamwerk", "filesystem", "io", "stdin", "stdout"]

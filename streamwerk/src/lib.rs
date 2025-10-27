@@ -41,16 +41,19 @@
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
-mod extract;
-mod load;
-mod pipeline;
-mod transform;
+pub mod extract;
+pub mod load;
+pub mod pipeline;
+pub mod transform;
 
 pub mod prelude;
 
 // Re-export main types at the crate root for convenience
-pub use extract::{Extract, ExtractExt, FnExtract, SkipExtractor, TakeExtractor};
-pub use load::{FnLoad, Load};
+pub use extract::{
+    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, LinesExtract, MapExtract,
+    ReadExtract, SkipExtractor, StdinExtract, TakeExtractor,
+};
+pub use load::{BatchLoad, FilterLoad, FnLoad, Load, MapLoad, PrefixLoad, SuffixLoad};
 pub use pipeline::EtlPipeline;
 pub use transform::{
     Compose, Filter, FnTransform, Identity, Map, ScanTransform, Transform,
