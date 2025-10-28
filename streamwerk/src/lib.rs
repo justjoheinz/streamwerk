@@ -59,6 +59,9 @@ pub use transform::{
     Compose, Filter, FnTransform, Identity, Map, ScanTransform, Transform,
 };
 
+// Re-export tokio_stream so users don't need to add it as a dependency
+pub use tokio_stream;
+
 // Stream helpers
 use anyhow::Result;
 use tokio_stream::Stream;

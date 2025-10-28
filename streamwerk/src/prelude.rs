@@ -1,6 +1,7 @@
 //! Prelude module for convenient imports.
 //!
-//! This module re-exports the most commonly used types and traits from the ETL framework.
+//! This module re-exports the most commonly used types and traits from the ETL framework,
+//! including tokio_stream types.
 //! You can import everything you need with a single use statement:
 //!
 //! ```rust
@@ -19,3 +20,4 @@ pub use crate::transform::{
 };
 pub use crate::pipeline::EtlPipeline;
 pub use crate::{iter_ok, once_err, once_ok};
+pub use tokio_stream::{Stream, StreamExt};

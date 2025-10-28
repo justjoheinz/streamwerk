@@ -5,6 +5,18 @@
 //!
 //! This crate provides extractors and loaders for filesystem operations in streamwerk pipelines.
 //!
+//! **Note:** This crate re-exports the base [`streamwerk`] crate, so you only need to
+//! declare `streamwerk-fs` as a dependency in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! streamwerk-fs = "0.0.1"
+//! ```
+//!
+//! Access base types via the re-export:
+//! - `streamwerk_fs::streamwerk::EtlPipeline`
+//! - Or use the prelude: `use streamwerk_fs::prelude::*;`
+//!
 //! # Extractors
 //!
 //! - [`FileExtract`] - Read files byte-by-byte as a stream of u8
@@ -36,6 +48,12 @@ use std::path::{Path, PathBuf};
 use tokio::fs::File;
 use tokio::io::BufReader;
 use tokio_stream::Stream;
+
+// Re-export the base streamwerk crate so users only need to depend on streamwerk-fs
+pub use streamwerk;
+
+// Re-export tokio_stream so users don't need to add it as a dependency
+pub use tokio_stream;
 
 pub mod prelude;
 

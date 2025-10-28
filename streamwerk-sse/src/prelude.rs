@@ -1,6 +1,7 @@
 //! Prelude module for convenient imports.
 //!
-//! This module re-exports the most commonly used types from the streamwerk-sse crate.
+//! This module re-exports the most commonly used types from the streamwerk-sse crate,
+//! the base streamwerk crate, and tokio_stream.
 //! You can import everything you need with a single use statement:
 //!
 //! ```rust
@@ -12,9 +13,7 @@
 //! ```rust,no_run
 //! # #![feature(impl_trait_in_assoc_type)]
 //! use streamwerk_sse::prelude::*;
-//! use streamwerk::{Extract, EtlPipeline, FnTransform, FnLoad};
 //! use serde::Deserialize;
-//! use tokio_stream::{iter, Stream};
 //! use anyhow::Result;
 //!
 //! #[derive(Deserialize, Debug)]
@@ -23,7 +22,7 @@
 //! }
 //!
 //! fn transform(event: Event) -> Result<impl Stream<Item = Result<String>> + Send> {
-//!     Ok(streamwerk::once_ok(event.message))
+//!     Ok(once_ok(event.message))
 //! }
 //!
 //! fn load(msg: String) -> Result<()> {
@@ -44,3 +43,5 @@
 //! ```
 
 pub use crate::{SseConfig, SseEvent, SseExtract, SseExtractRef, SseExtractWithType};
+pub use streamwerk::prelude::*;
+pub use tokio_stream::{Stream, StreamExt};

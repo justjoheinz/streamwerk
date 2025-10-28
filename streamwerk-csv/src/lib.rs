@@ -6,10 +6,23 @@
 //! This crate provides transformers for CSV and JSON Lines serialization/deserialization
 //! in streamwerk pipelines.
 //!
+//! **Note:** This crate re-exports the base [`streamwerk`] crate, so you only need to
+//! declare `streamwerk-csv` as a dependency in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! streamwerk-csv = "0.0.1"
+//! ```
+//!
+//! Access base types via the re-export:
+//! - `streamwerk_csv::streamwerk::EtlPipeline`
+//! - Or use the prelude: `use streamwerk_csv::prelude::*;`
+//!
 //! # CSV Transformers
 //!
 //! - [`CsvSerializer`] - Serialize Rust structs to CSV line strings
 //! - [`CsvDeserializer`] - Deserialize CSV line strings to Rust structs
+//! - [`CsvConfig`] - Configuration for CSV format (delimiter, quotes, escaping)
 //!
 //! # JSON Lines (JSONL) Transformers
 //!
@@ -19,12 +32,30 @@
 //! # Features
 //!
 //! - Serde-based serialization/deserialization for any serde-compatible type
+//! - Configurable CSV format (comma, tab, or custom delimiters)
 //! - No headers in serialized output (use `WithHeader` decorator for headers)
 //! - Compact single-line JSON output suitable for JSONL format
 //! - Line-by-line processing for memory-efficient streaming
 //!
 //! All transformers implement the `Transform` trait and can be composed with other
 //! transformations using `and_then()`, `filter()`, and `map()`.
+//!
+//! # CSV Configuration Examples
+//!
+//! ```rust
+//! use streamwerk_csv::{CsvSerializer, CsvConfig};
+//!
+//! // Default comma-separated values
+//! let csv_serializer = CsvSerializer::new();
+//!
+//! // Tab-separated values (TSV)
+//! let tsv_serializer = CsvSerializer::with_config(CsvConfig::tsv());
+//!
+//! // Custom delimiter
+//! let pipe_serializer = CsvSerializer::with_config(
+//!     CsvConfig::new().with_delimiter(b'|')
+//! );
+//! ```
 //!
 //! For complete usage examples, see the `streamwerk-debug` crate.
 
@@ -33,7 +64,82 @@ use streamwerk::Transform;
 use serde::{Serialize, de::DeserializeOwned};
 use tokio_stream::Stream;
 
+// Re-export the base streamwerk crate so users only need to depend on streamwerk-csv
+pub use streamwerk;
+
+// Re-export tokio_stream so users don't need to add it as a dependency
+pub use tokio_stream;
+
 pub mod prelude;
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+/// Configuration for CSV serialization and deserialization.
+///
+/// Allows customization of the CSV format, including delimiter, quotes, and escaping.
+#[derive(Debug, Clone)]
+pub struct CsvConfig {
+    /// The field delimiter character (default: `,`)
+    pub delimiter: u8,
+    /// Whether to write/expect quotes around fields (default: true for RFC 4180 compliance)
+    pub quote: u8,
+    /// The escape character (default: `"`)
+    pub escape: Option<u8>,
+    /// Whether double quotes should be used for escaping quotes (default: true)
+    pub double_quote: bool,
+}
+
+impl Default for CsvConfig {
+    fn default() -> Self {
+        Self {
+            delimiter: b',',
+            quote: b'"',
+            escape: None,
+            double_quote: true,
+        }
+    }
+}
+
+impl CsvConfig {
+    /// Create a new CSV config with comma delimiter (default).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a config for tab-separated values (TSV).
+    pub fn tsv() -> Self {
+        Self {
+            delimiter: b'\t',
+            ..Self::default()
+        }
+    }
+
+    /// Set the delimiter character.
+    pub fn with_delimiter(mut self, delimiter: u8) -> Self {
+        self.delimiter = delimiter;
+        self
+    }
+
+    /// Set the quote character.
+    pub fn with_quote(mut self, quote: u8) -> Self {
+        self.quote = quote;
+        self
+    }
+
+    /// Set the escape character.
+    pub fn with_escape(mut self, escape: Option<u8>) -> Self {
+        self.escape = escape;
+        self
+    }
+
+    /// Set whether to use double quotes for escaping.
+    pub fn with_double_quote(mut self, double_quote: bool) -> Self {
+        self.double_quote = double_quote;
+        self
+    }
+}
 
 // ============================================================================
 // CSV Transformers
@@ -42,13 +148,13 @@ pub mod prelude;
 /// Transform that serializes CSV-serializable types into CSV line strings.
 ///
 /// Takes any type that implements `serde::Serialize` and converts it to
-/// a CSV-formatted string using csv-line.
+/// a CSV-formatted string. Supports configuration for custom delimiters (e.g., tabs).
 ///
 /// # Example
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use streamwerk_csv::CsvSerializer;
+/// use streamwerk_csv::{CsvSerializer, CsvConfig};
 /// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Serialize;
 /// use tokio_stream::{iter, Stream};
@@ -70,15 +176,43 @@ pub mod prelude;
 /// }
 ///
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// // Use default comma delimiter
+/// let serializer = CsvSerializer::new();
+///
+/// // Or use tab delimiter
+/// let tsv_serializer = CsvSerializer::with_config(CsvConfig::tsv());
+///
 /// let pipeline = EtlPipeline::new(
 ///     FnExtract(extract),
-///     CsvSerializer,
+///     serializer,
 ///     FnLoad(load)
 /// );
 /// pipeline.run(()).await.unwrap();
 /// # });
 /// ```
-pub struct CsvSerializer;
+pub struct CsvSerializer {
+    config: CsvConfig,
+}
+
+impl CsvSerializer {
+    /// Create a new CSV serializer with default configuration (comma delimiter).
+    pub fn new() -> Self {
+        Self {
+            config: CsvConfig::default(),
+        }
+    }
+
+    /// Create a new CSV serializer with custom configuration.
+    pub fn with_config(config: CsvConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl Default for CsvSerializer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T> Transform<T, String> for CsvSerializer
 where
@@ -95,9 +229,17 @@ where
         use csv::WriterBuilder;
         use std::io::Cursor;
 
-        let mut wtr = WriterBuilder::new()
-            .has_headers(false)
-            .from_writer(Cursor::new(Vec::new()));
+        let mut builder = WriterBuilder::new();
+        builder.has_headers(false);
+        builder.delimiter(self.config.delimiter);
+        builder.quote(self.config.quote);
+        builder.double_quote(self.config.double_quote);
+
+        if let Some(escape) = self.config.escape {
+            builder.escape(escape);
+        }
+
+        let mut wtr = builder.from_writer(Cursor::new(Vec::new()));
 
         wtr.serialize(&input)?;
         let data = wtr.into_inner()?.into_inner();
@@ -112,13 +254,13 @@ where
 /// Transform that deserializes CSV line strings into typed structures.
 ///
 /// Takes a CSV-formatted string and converts it to any type that implements
-/// `serde::Deserialize` using csv-line.
+/// `serde::Deserialize`. Supports configuration for custom delimiters (e.g., tabs).
 ///
 /// # Example
 ///
 /// ```rust
 /// # #![feature(impl_trait_in_assoc_type)]
-/// use streamwerk_csv::CsvDeserializer;
+/// use streamwerk_csv::{CsvDeserializer, CsvConfig};
 /// use streamwerk::{EtlPipeline, FnExtract, FnLoad};
 /// use serde::Deserialize;
 /// use tokio_stream::{iter, Stream};
@@ -140,15 +282,43 @@ where
 /// }
 ///
 /// # tokio::runtime::Runtime::new().unwrap().block_on(async {
+/// // Use default comma delimiter
+/// let deserializer = CsvDeserializer::new();
+///
+/// // Or use tab delimiter for TSV files
+/// let tsv_deserializer = CsvDeserializer::with_config(CsvConfig::tsv());
+///
 /// let pipeline = EtlPipeline::new(
 ///     FnExtract(extract),
-///     CsvDeserializer,
+///     deserializer,
 ///     FnLoad(load)
 /// );
 /// pipeline.run(()).await.unwrap();
 /// # });
 /// ```
-pub struct CsvDeserializer;
+pub struct CsvDeserializer {
+    config: CsvConfig,
+}
+
+impl CsvDeserializer {
+    /// Create a new CSV deserializer with default configuration (comma delimiter).
+    pub fn new() -> Self {
+        Self {
+            config: CsvConfig::default(),
+        }
+    }
+
+    /// Create a new CSV deserializer with custom configuration.
+    pub fn with_config(config: CsvConfig) -> Self {
+        Self { config }
+    }
+}
+
+impl Default for CsvDeserializer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T> Transform<String, T> for CsvDeserializer
 where
@@ -162,8 +332,29 @@ where
         T: 'a;
 
     fn transform<'a>(&'a self, input: String) -> Result<Self::Stream<'a>> {
-        let value: T = csv_line::from_str(&input)?;
-        Ok(streamwerk::once_ok(value))
+        use csv::ReaderBuilder;
+        use std::io::Cursor;
+
+        let mut builder = ReaderBuilder::new();
+        builder.has_headers(false);
+        builder.delimiter(self.config.delimiter);
+        builder.quote(self.config.quote);
+        builder.double_quote(self.config.double_quote);
+
+        if let Some(escape) = self.config.escape {
+            builder.escape(Some(escape));
+        }
+
+        let mut reader = builder.from_reader(Cursor::new(input));
+
+        // Read the single record
+        let mut record = csv::StringRecord::new();
+        if reader.read_record(&mut record)? {
+            let value: T = record.deserialize(None)?;
+            Ok(streamwerk::once_ok(value))
+        } else {
+            Err(anyhow::anyhow!("No CSV record found in input"))
+        }
     }
 }
 
@@ -301,7 +492,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_csv_serializer() {
-        let serializer = CsvSerializer;
+        let serializer = CsvSerializer::new();
         let person = Person {
             name: "Alice".to_string(),
             age: 30,
@@ -317,7 +508,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_csv_deserializer() {
-        let deserializer = CsvDeserializer;
+        let deserializer = CsvDeserializer::new();
         let csv_line = "Bob,25".to_string();
 
         let stream: <CsvDeserializer as Transform<String, Person>>::Stream<'_> =
@@ -343,13 +534,13 @@ mod tests {
         };
 
         // Serialize
-        let serializer = CsvSerializer;
+        let serializer = CsvSerializer::new();
         let stream = serializer.transform(original).unwrap();
         let mut results: Vec<_> = stream.collect().await;
         let csv_line = results.pop().unwrap().unwrap();
 
         // Deserialize
-        let deserializer = CsvDeserializer;
+        let deserializer = CsvDeserializer::new();
         let stream: <CsvDeserializer as Transform<String, Person>>::Stream<'_> =
             deserializer.transform(csv_line).unwrap();
         let mut results: Vec<_> = stream.collect().await;
@@ -360,6 +551,42 @@ mod tests {
             Person {
                 name: "Charlie".to_string(),
                 age: 35
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tsv_serializer() {
+        let serializer = CsvSerializer::with_config(CsvConfig::tsv());
+        let person = Person {
+            name: "Alice".to_string(),
+            age: 30,
+        };
+
+        let stream = serializer.transform(person).unwrap();
+        let results: Vec<_> = stream.collect().await;
+
+        assert_eq!(results.len(), 1);
+        let tsv = results[0].as_ref().unwrap();
+        assert_eq!(tsv, "Alice\t30");
+    }
+
+    #[tokio::test]
+    async fn test_tsv_deserializer() {
+        let deserializer = CsvDeserializer::with_config(CsvConfig::tsv());
+        let tsv_line = "Bob\t25".to_string();
+
+        let stream: <CsvDeserializer as Transform<String, Person>>::Stream<'_> =
+            deserializer.transform(tsv_line).unwrap();
+        let results: Vec<_> = stream.collect().await;
+
+        assert_eq!(results.len(), 1);
+        let person = results[0].as_ref().unwrap();
+        assert_eq!(
+            person,
+            &Person {
+                name: "Bob".to_string(),
+                age: 25
             }
         );
     }

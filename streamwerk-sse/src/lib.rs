@@ -6,6 +6,18 @@
 //! This crate provides extractors for Server-Sent Events (SSE) streams,
 //! allowing SSE endpoints to be used as data sources in streamwerk pipelines.
 //!
+//! **Note:** This crate re-exports the base [`streamwerk`] crate, so you only need to
+//! declare `streamwerk-sse` as a dependency in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! streamwerk-sse = "0.0.1"
+//! ```
+//!
+//! Access base types via the re-export:
+//! - `streamwerk_sse::streamwerk::EtlPipeline`
+//! - Or use the prelude: `use streamwerk_sse::prelude::*;`
+//!
 //! # Features
 //!
 //! - Async SSE stream consumption using `reqwest` and `sse-stream`
@@ -36,7 +48,6 @@
 //! ```rust,no_run
 //! # #![feature(impl_trait_in_assoc_type)]
 //! use streamwerk_sse::prelude::*;
-//! use streamwerk::{EtlPipeline, FnTransform, FnLoad};
 //! use serde::Deserialize;
 //! use tokio_stream::{iter, Stream};
 //! use anyhow::Result;
@@ -48,7 +59,7 @@
 //! }
 //!
 //! fn transform(event: Event) -> Result<impl Stream<Item = Result<String>> + Send> {
-//!     Ok(streamwerk::once_ok(format!("{}: {}", event.timestamp, event.message)))
+//!     Ok(once_ok(format!("{}: {}", event.timestamp, event.message)))
 //! }
 //!
 //! fn load(msg: String) -> Result<()> {
@@ -75,6 +86,12 @@ use serde::de::DeserializeOwned;
 use sse_stream::SseStream;
 use std::marker::PhantomData;
 use tokio_stream::Stream;
+
+// Re-export the base streamwerk crate so users only need to depend on streamwerk-sse
+pub use streamwerk;
+
+// Re-export tokio_stream so users don't need to add it as a dependency
+pub use tokio_stream;
 
 pub mod prelude;
 

@@ -40,7 +40,7 @@ async fn run_csv_sample() -> Result<()> {
     // Build the pipeline with composition and filtering
     let pipeline = EtlPipeline::new(
         FileLineExtract.skip(1), // Extract: PathBuf → Stream<String>, skip header
-        CsvDeserializer // Transform: String → Person
+        CsvDeserializer::new() // Transform: String → Person
             .filter(|person: &Person| person.age > 50) // Filter: Keep only persons over 50
             .map(|person: Person| person.to_string()), // Convert Person to String for WithHeader
         WithHeader::new(StdoutLoad, header), // Load: String → stdout with header
@@ -64,7 +64,7 @@ async fn run_stdin_sample() -> Result<()> {
     // Build the pipeline with composition and filtering
     let pipeline = EtlPipeline::new(
         StdinLineExtract.skip(1), // Extract: () → Stream<String>, skip header
-        CsvDeserializer // Transform: String → Person
+        CsvDeserializer::new() // Transform: String → Person
             .filter(|person: &Person| person.age > 50) // Filter: Keep only persons over 50
             .map(|person: Person| person.to_string()), // Convert Person to String for WithHeader
         WithHeader::new(StdoutLoad, header), // Load: String → stdout with header
@@ -81,9 +81,9 @@ async fn run_file_sample() -> Result<()> {
     // Build the pipeline that writes filtered persons to a CSV file
     let pipeline = EtlPipeline::new(
         FileLineExtract.skip(1), // Extract: PathBuf → Stream<String>, skip header
-        CsvDeserializer // Transform: String → Person
+        CsvDeserializer::new() // Transform: String → Person
             .filter(|person: &Person| person.age > 50) // Filter: Keep only persons over 50
-            .and_then(CsvSerializer), // Transform: Person → CSV String
+            .and_then(CsvSerializer::new()), // Transform: Person → CSV String
         WithHeader::new(FileLoad::create("output.csv"), "name,age"), // Load: CSV String → file with CSV header
     );
 
