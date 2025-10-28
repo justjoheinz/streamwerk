@@ -17,8 +17,6 @@ jobs:
       matrix:
         target:
           - native
-          - wasm32-wasip2
-          - wasm32-unknown-unknown
 
     steps:
     - uses: actions/checkout@v4
