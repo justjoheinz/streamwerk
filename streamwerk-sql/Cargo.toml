@@ -7,7 +7,7 @@ keywords = ["streamwerk", "database", "postgres", "diesel", "sql"]
 
 [dependencies]
 streamwerk = { path = "../streamwerk" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }
 async-stream = { workspace = true }
