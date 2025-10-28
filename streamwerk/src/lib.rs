@@ -22,7 +22,7 @@
 //!     Ok(iter_ok(vec![n * 2]))
 //! }
 //!
-//! fn load_data(n: i32) -> Result<()> {
+//! async fn load_data(n: i32) -> Result<()> {
 //!     println!("Loaded: {}", n);
 //!     Ok(())
 //! }
@@ -200,9 +200,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers);
@@ -226,9 +229,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers);
@@ -276,9 +282,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
@@ -301,9 +310,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
@@ -344,9 +356,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
@@ -370,9 +385,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         let extractor = FnExtract(extract_numbers); // Produces 1, 2, 3
@@ -421,9 +439,12 @@ mod tests {
         let results = Arc::new(Mutex::new(Vec::new()));
         let results_clone = Arc::clone(&results);
 
-        let load_fn = move |n: i32| -> Result<()> {
-            results_clone.lock().unwrap().push(n);
-            Ok(())
+        let load_fn = |n: i32| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(n);
+                Ok(())
+            }
         };
 
         fn emit_multiple(n: i32) -> Result<impl Stream<Item = Result<i32>> + Send> {

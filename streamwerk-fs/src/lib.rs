@@ -407,21 +407,19 @@ impl<T: std::fmt::Display> streamwerk::Load<T> for FileLoad<T> {
         }
     }
 
-    fn load(&self, item: T) -> Result<()> {
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
         use tokio::io::AsyncWriteExt;
-        
+
         let file = self.file.clone();
         let item_str = item.to_string();
-        
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                let mut guard = file.lock().await;
-                let writer = guard.as_mut().ok_or_else(|| anyhow::anyhow!("File not initialized"))?;
-                writer.write_all(item_str.as_bytes()).await?;
-                writer.write_all(b"\n").await?;
-                Ok(())
-            })
-        })
+
+        async move {
+            let mut guard = file.lock().await;
+            let writer = guard.as_mut().ok_or_else(|| anyhow::anyhow!("File not initialized"))?;
+            writer.write_all(item_str.as_bytes()).await?;
+            writer.write_all(b"\n").await?;
+            Ok(())
+        }
     }
 
     fn finalize(&self, _result: &Result<()>) -> impl std::future::Future<Output = Result<()>> + Send {
@@ -465,9 +463,11 @@ impl<T> FileLoad<T> {
     }
 }
 
-impl<T: std::fmt::Display> streamwerk::Load<T> for StdoutLoad {
-    fn load(&self, item: T) -> Result<()> {
-        println!("{}", item);
-        Ok(())
+impl<T: std::fmt::Display + Send> streamwerk::Load<T> for StdoutLoad {
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
+            println!("{}", item);
+            Ok(())
+        }
     }
 }

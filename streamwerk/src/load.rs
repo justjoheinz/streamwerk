@@ -45,7 +45,7 @@ use anyhow::*;
 /// use streamwerk::{Load, FnLoad};
 /// use anyhow::Result;
 ///
-/// fn write_to_db(item: i32) -> Result<()> {
+/// async fn write_to_db(item: i32) -> Result<()> {
 ///     println!("Writing {} to database", item);
 ///     Ok(())
 /// }
@@ -65,7 +65,7 @@ pub trait Load<Input> {
     }
 
     /// Load a single item, performing side effects like writing to storage
-    fn load(&self, item: Input) -> Result<()>;
+    fn load(&self, item: Input) -> impl std::future::Future<Output = Result<()>> + Send;
 
     /// Finalize the loader after all items have been processed.
     ///
@@ -95,7 +95,7 @@ pub trait Load<Input> {
 /// use streamwerk::FnLoad;
 /// use anyhow::Result;
 ///
-/// fn save_to_db(item: i32) -> Result<()> {
+/// async fn save_to_db(item: i32) -> Result<()> {
 ///     println!("Saving {} to database", item);
 ///     Ok(())
 /// }
@@ -104,11 +104,12 @@ pub trait Load<Input> {
 /// ```
 pub struct FnLoad<F>(pub F);
 
-impl<F, Input> Load<Input> for FnLoad<F>
+impl<F, Input, Fut> Load<Input> for FnLoad<F>
 where
-    F: Fn(Input) -> Result<()>,
+    F: Fn(Input) -> Fut,
+    Fut: std::future::Future<Output = Result<()>> + Send,
 {
-    fn load(&self, item: Input) -> Result<()> {
+    fn load(&self, item: Input) -> impl std::future::Future<Output = Result<()>> + Send {
         (self.0)(item)
     }
 }
@@ -134,9 +135,11 @@ where
 /// // Example loader that prints to stdout
 /// struct StdoutLoad;
 /// impl Load<String> for StdoutLoad {
-///     fn load(&self, item: String) -> Result<()> {
-///         println!("{}", item);
-///         Ok(())
+///     fn load(&self, item: String) -> impl std::future::Future<Output = Result<()>> + Send {
+///         async move {
+///             println!("{}", item);
+///             Ok(())
+///         }
 ///     }
 /// }
 ///
@@ -166,7 +169,7 @@ where
         self.inner.initialize()
     }
 
-    fn load(&self, item: String) -> Result<()> {
+    fn load(&self, item: String) -> impl std::future::Future<Output = Result<()>> + Send {
         self.inner.load(item)
     }
 
@@ -186,7 +189,7 @@ where
 /// use streamwerk::{Load, FnLoad, MapLoad};
 /// use anyhow::Result;
 ///
-/// fn save_string(s: String) -> Result<()> {
+/// async fn save_string(s: String) -> Result<()> {
 ///     println!("Saving: {}", s);
 ///     Ok(())
 /// }
@@ -225,7 +228,7 @@ where
         self.inner.initialize()
     }
 
-    fn load(&self, item: Input) -> Result<()> {
+    fn load(&self, item: Input) -> impl std::future::Future<Output = Result<()>> + Send {
         let mapped = (self.mapper)(item);
         self.inner.load(mapped)
     }
@@ -246,7 +249,7 @@ where
 /// use streamwerk::{Load, FnLoad, FilterLoad};
 /// use anyhow::Result;
 ///
-/// fn save_number(n: i32) -> Result<()> {
+/// async fn save_number(n: i32) -> Result<()> {
 ///     println!("Saving: {}", n);
 ///     Ok(())
 /// }
@@ -275,16 +278,19 @@ impl<L, P, Input> Load<Input> for FilterLoad<L, P>
 where
     L: Load<Input> + Sync,
     P: Fn(&Input) -> bool + Sync,
+    Input: Send,
 {
     fn initialize(&self) -> impl std::future::Future<Output = Result<()>> + Send {
         self.inner.initialize()
     }
 
-    fn load(&self, item: Input) -> Result<()> {
-        if (self.predicate)(&item) {
-            self.inner.load(item)
-        } else {
-            Ok(()) // Skip items that don't match predicate
+    fn load(&self, item: Input) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
+            if (self.predicate)(&item) {
+                self.inner.load(item).await
+            } else {
+                Ok(()) // Skip items that don't match predicate
+            }
         }
     }
 
@@ -305,7 +311,7 @@ where
 /// use streamwerk::{Load, FnLoad, PrefixLoad};
 /// use anyhow::Result;
 ///
-/// fn print_number(n: i32) -> Result<()> {
+/// async fn print_number(n: i32) -> Result<()> {
 ///     println!("{}", n);
 ///     Ok(())
 /// }
@@ -343,13 +349,13 @@ where
         async move {
             inner.initialize().await?;
             for item in prefix {
-                inner.load(item)?;
+                inner.load(item).await?;
             }
             Ok(())
         }
     }
 
-    fn load(&self, item: T) -> Result<()> {
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
         self.inner.load(item)
     }
 
@@ -370,7 +376,7 @@ where
 /// use streamwerk::{Load, FnLoad, SuffixLoad};
 /// use anyhow::Result;
 ///
-/// fn print_string(s: String) -> Result<()> {
+/// async fn print_string(s: String) -> Result<()> {
 ///     println!("{}", s);
 ///     Ok(())
 /// }
@@ -405,7 +411,7 @@ where
         self.inner.initialize()
     }
 
-    fn load(&self, item: T) -> Result<()> {
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
         self.inner.load(item)
     }
 
@@ -417,7 +423,7 @@ where
             // Only load suffix items if the pipeline succeeded
             if result.is_ok() {
                 for item in suffix {
-                    inner.load(item)?;
+                    inner.load(item).await?;
                 }
             }
             inner.finalize(result).await
@@ -437,7 +443,7 @@ where
 /// use streamwerk::{Load, FnLoad, BatchLoad};
 /// use anyhow::Result;
 ///
-/// fn save_batch(batch: Vec<i32>) -> Result<()> {
+/// async fn save_batch(batch: Vec<i32>) -> Result<()> {
 ///     println!("Saving batch of {} items", batch.len());
 ///     Ok(())
 /// }
@@ -469,12 +475,16 @@ where
         }
     }
 
-    fn flush_buffer(&self) -> Result<()> {
-        let mut buffer = self.buffer.lock().unwrap();
-        if !buffer.is_empty() {
-            let batch = std::mem::replace(&mut *buffer, Vec::with_capacity(self.batch_size));
-            self.inner.load(batch)?;
-        }
+    async fn flush_buffer(&self) -> Result<()> {
+        let batch = {
+            let mut buffer = self.buffer.lock().unwrap();
+            if buffer.is_empty() {
+                return Ok(());
+            }
+            std::mem::replace(&mut *buffer, Vec::with_capacity(self.batch_size))
+        }; // Lock is dropped here
+
+        self.inner.load(batch).await?;
         Ok(())
     }
 }
@@ -488,17 +498,24 @@ where
         self.inner.initialize()
     }
 
-    fn load(&self, item: T) -> Result<()> {
-        let mut buffer = self.buffer.lock().unwrap();
-        buffer.push(item);
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
+        async move {
+            let should_flush = {
+                let mut buffer = self.buffer.lock().unwrap();
+                buffer.push(item);
+                buffer.len() >= self.batch_size
+            };
 
-        if buffer.len() >= self.batch_size {
-            let batch = std::mem::replace(&mut *buffer, Vec::with_capacity(self.batch_size));
-            drop(buffer); // Release lock before loading
-            self.inner.load(batch)?;
+            if should_flush {
+                let batch = {
+                    let mut buffer = self.buffer.lock().unwrap();
+                    std::mem::replace(&mut *buffer, Vec::with_capacity(self.batch_size))
+                };
+                self.inner.load(batch).await?;
+            }
+
+            Ok(())
         }
-
-        Ok(())
     }
 
     fn finalize(&self, result: &Result<()>) -> impl std::future::Future<Output = Result<()>> + Send {
@@ -507,7 +524,7 @@ where
         async move {
             // Flush any remaining items in the buffer
             if result.is_ok() {
-                self.flush_buffer()?;
+                self.flush_buffer().await?;
             }
             inner.finalize(result).await
         }

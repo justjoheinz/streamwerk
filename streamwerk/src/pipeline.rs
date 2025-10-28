@@ -34,7 +34,7 @@ use crate::{Extract, Load, Transform};
 ///     Ok(iter(vec![Ok(n * 2)]))
 /// }
 ///
-/// fn load(n: i32) -> Result<()> {
+/// async fn load(n: i32) -> Result<()> {
 ///     println!("{}", n);
 ///     Ok(())
 /// }
@@ -100,7 +100,7 @@ impl<E, T, L> EtlPipeline<E, T, L> {
 
                 while let Some(output_result) = transformed_stream.next().await {
                     let output = output_result?;
-                    self.load.load(output)?;
+                    self.load.load(output).await?;
                 }
             }
 

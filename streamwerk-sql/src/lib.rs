@@ -55,7 +55,7 @@
 //! let pipeline = EtlPipeline::new(
 //!     extractor,
 //!     FnTransform(|user: User| Ok(streamwerk::once_ok(user))),
-//!     FnLoad(|user: User| {
+//!     FnLoad(|user: User| async move {
 //!         println!("User: {} - {}", user.id, user.name);
 //!         Ok(())
 //!     })
@@ -278,25 +278,23 @@ where
     diesel::query_builder::InsertStatement<Table, <T as diesel::Insertable<Table>>::Values>:
         diesel_async::methods::ExecuteDsl<AsyncPgConnection>,
 {
-    fn load(&self, item: T) -> Result<()> {
+    fn load(&self, item: T) -> impl std::future::Future<Output = Result<()>> + Send {
         let connection = self.connection.clone();
         let table = self.table.clone();
 
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async {
-                let mut guard = connection.lock().await;
-                let conn = guard.as_mut().ok_or_else(|| anyhow::anyhow!("Connection not available"))?;
+        async move {
+            let mut guard = connection.lock().await;
+            let conn = guard.as_mut().ok_or_else(|| anyhow::anyhow!("Connection not available"))?;
 
-                diesel_async::RunQueryDsl::execute(
-                    diesel::insert_into(table).values(item),
-                    conn
-                )
-                .await
-                .map_err(|e| anyhow::anyhow!("Failed to insert into database: {}", e))?;
+            diesel_async::RunQueryDsl::execute(
+                diesel::insert_into(table).values(item),
+                conn
+            )
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to insert into database: {}", e))?;
 
-                Ok(())
-            })
-        })
+            Ok(())
+        }
     }
 
     fn finalize(&self, _result: &Result<()>) -> impl std::future::Future<Output = Result<()>> + Send {

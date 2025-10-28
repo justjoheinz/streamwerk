@@ -56,9 +56,12 @@ async fn test_postgres_extract_all_persons() {
     let pipeline = EtlPipeline::new(
         extractor,
         FnTransform(|person: Person| Ok(streamwerk::once_ok(person))),
-        FnLoad(move |person: Person| {
-            results_clone.lock().unwrap().push(person);
-            Ok(())
+        FnLoad(|person: Person| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(person);
+                Ok(())
+            }
         }),
     );
 
@@ -98,9 +101,12 @@ async fn test_postgres_extract_filtered_query() {
     let pipeline = EtlPipeline::new(
         extractor,
         FnTransform(|person: Person| Ok(streamwerk::once_ok(person))),
-        FnLoad(move |person: Person| {
-            results_clone.lock().unwrap().push(person);
-            Ok(())
+        FnLoad(|person: Person| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(person);
+                Ok(())
+            }
         }),
     );
 
@@ -141,9 +147,12 @@ async fn test_postgres_extract_with_skip_and_take() {
     let pipeline = EtlPipeline::new(
         extractor,
         FnTransform(|person: Person| Ok(streamwerk::once_ok(person))),
-        FnLoad(move |person: Person| {
-            results_clone.lock().unwrap().push(person);
-            Ok(())
+        FnLoad(|person: Person| {
+            let results = Arc::clone(&results_clone);
+            async move {
+                results.lock().unwrap().push(person);
+                Ok(())
+            }
         }),
     );
 

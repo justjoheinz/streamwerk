@@ -170,7 +170,7 @@ impl CsvConfig {
 ///     Ok(streamwerk::once_ok(Person { name: "Alice".to_string(), age: 30 }))
 /// }
 ///
-/// fn load(csv_line: String) -> Result<()> {
+/// async fn load(csv_line: String) -> Result<()> {
 ///     println!("{}", csv_line);
 ///     Ok(())
 /// }
@@ -276,7 +276,7 @@ where
 ///     Ok(streamwerk::once_ok("Alice,30".to_string()))
 /// }
 ///
-/// fn load(person: Person) -> Result<()> {
+/// async fn load(person: Person) -> Result<()> {
 ///     println!("{}: {}", person.name, person.age);
 ///     Ok(())
 /// }
@@ -387,7 +387,7 @@ where
 ///     Ok(streamwerk::once_ok(r#"{"name":"Alice","age":30}"#.to_string()))
 /// }
 ///
-/// fn load(person: Person) -> Result<()> {
+/// async fn load(person: Person) -> Result<()> {
 ///     println!("{}: {}", person.name, person.age);
 ///     Ok(())
 /// }
@@ -445,7 +445,7 @@ where
 ///     Ok(streamwerk::once_ok(Person { name: "Alice".to_string(), age: 30 }))
 /// }
 ///
-/// fn load(json_line: String) -> Result<()> {
+/// async fn load(json_line: String) -> Result<()> {
 ///     println!("{}", json_line);
 ///     Ok(())
 /// }
