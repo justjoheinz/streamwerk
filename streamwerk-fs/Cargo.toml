@@ -9,8 +9,8 @@ keywords = ["streamwerk", "filesystem", "io", "stdin", "stdout"]
 
 [dependencies]
 streamwerk = { path = "../streamwerk" }
-tokio = { workspace = true }
-tokio-stream = { workspace = true }
+tokio = { workspace = true, features = ["sync", "macros", "rt", "rt-multi-thread", "io-util", "io-std", "fs"] }
+tokio-stream = { workspace = true, features = ["io-util"] }
 anyhow = { workspace = true }
 futures = { workspace = true }
 async-stream = {workspace = true}

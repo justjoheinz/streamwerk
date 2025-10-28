@@ -9,7 +9,8 @@
 //! ```
 
 pub use crate::{
-    FileExtract, FileLineExtract, FileLoad, StdinLineExtract, StdoutLoad, WriteMode,
+    FileExtract, FileLineExtract, FileLoad, LinesExtract, ReadExtract, StdinExtract,
+    StdinLineExtract, StdoutLoad, WriteMode,
 };
 pub use streamwerk::prelude::*;
 pub use tokio_stream::{Stream, StreamExt};

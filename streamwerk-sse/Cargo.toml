@@ -9,7 +9,7 @@ keywords = ["streamwerk", "sse", "server-sent-events", "streaming", "http"]
 
 [dependencies]
 streamwerk = { path = "../streamwerk" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }
 futures = { workspace = true }

@@ -10,7 +10,7 @@ streamwerk = { path = "../streamwerk" }
 streamwerk-fs = { path = "../streamwerk-fs" }
 streamwerk-csv = { path = "../streamwerk-csv" }
 streamwerk-sse = { path = "../streamwerk-sse" }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync", "macros", "rt", "io-util"] }
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }
 serde = { version = "1", features = ["derive"] }

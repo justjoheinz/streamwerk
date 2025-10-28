@@ -9,8 +9,8 @@
 //! ```
 
 pub use crate::extract::{
-    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, LinesExtract, MapExtract,
-    ReadExtract, SkipExtractor, StdinExtract, TakeExtractor,
+    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, MapExtract,
+    SkipExtractor, TakeExtractor,
 };
 pub use crate::load::{
     BatchLoad, FilterLoad, FnLoad, Load, MapLoad, PrefixLoad, SuffixLoad, WithHeader,

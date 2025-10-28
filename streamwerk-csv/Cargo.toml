@@ -9,7 +9,7 @@ keywords = ["streamwerk", "csv", "json", "jsonl", "serde"]
 
 [dependencies]
 streamwerk = { path = "../streamwerk" }
-tokio = {workspace = true}
+tokio = {workspace = true, features = ["sync", "macros", "rt"]}
 tokio-stream = { workspace = true }
 anyhow = { workspace = true }
 csv-line = "0.3"

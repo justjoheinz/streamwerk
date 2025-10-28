@@ -9,7 +9,7 @@ keywords = ["etl", "pipeline", "stream", "async", "data-processing"]
 
 [dependencies]
 futures = {workspace = true}
-tokio = {workspace = true}
-tokio-stream = {workspace = true}
+tokio = {workspace = true, default-features = false, features = ["sync", "macros", "rt", "time"]}
+tokio-stream = {workspace = true, default-features = false, features = ["time"]}
 anyhow = {workspace = true}
 async-stream = {workspace = true}

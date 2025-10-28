@@ -6,8 +6,6 @@
 //!
 //! # Base Extractors
 //!
-//! - [`ReadExtract`] - Extract bytes from any `AsyncRead` source
-//! - [`StdinExtract`] - Extract bytes from stdin
 //! - [`FnExtract`] - Wrap functions as extractors
 //!
 //! # Extract Decorators
@@ -17,7 +15,6 @@
 //! - [`MapExtract`] - Transform output items
 //! - [`FilterExtract`] - Filter output items
 //! - [`FlatMapExtract`] - Map items to streams and flatten
-//! - [`LinesExtract`] - Convert byte streams to line streams
 //! - [`SkipExtractor`] - Skip first n items
 //! - [`TakeExtractor`] - Take at most n items
 //!
@@ -27,7 +24,6 @@
 
 use anyhow::*;
 use tokio_stream::{Stream, adapters::{Skip, Take}};
-use tokio::io::AsyncRead;
 
 // ============================================================================
 // Core Trait
@@ -396,182 +392,3 @@ where
     }
 }
 
-/// Extractor that reads bytes from any `AsyncRead` source.
-///
-/// Streams data byte-by-byte from any type implementing `tokio::io::AsyncRead`.
-/// This is a low-level extractor that can work with files, network streams,
-/// in-memory buffers, or any other async reader.
-///
-/// # Example
-///
-/// ```rust
-/// use streamwerk::{Extract, ReadExtract};
-/// use tokio::io::AsyncRead;
-/// use anyhow::Result;
-///
-/// # #[tokio::main]
-/// # async fn main() -> Result<()> {
-/// // Create a reader from a byte slice
-/// let data: &[u8] = b"Hello, World!";
-/// let reader = std::io::Cursor::new(data);
-///
-/// let extractor = ReadExtract;
-/// let stream = extractor.extract(reader)?;
-///
-/// // Stream will yield each byte: b'H', b'e', b'l', b'l', b'o', ...
-/// # Ok(())
-/// # }
-/// ```
-pub struct ReadExtract;
-
-impl<R> Extract<R, u8> for ReadExtract
-where
-    R: AsyncRead + Send + Unpin + 'static,
-{
-    type StreamType = impl Stream<Item = Result<u8>> + Send;
-
-    fn extract(&self, reader: R) -> Result<Self::StreamType> {
-        let stream = async_stream::stream! {
-            use tokio::io::AsyncReadExt;
-            let mut reader = reader;
-            let mut buffer = [0u8; 1];
-
-            loop {
-                match reader.read(&mut buffer).await {
-                    core::result::Result::Ok(0) => break, // EOF
-                    core::result::Result::Ok(_) => yield core::result::Result::Ok(buffer[0]),
-                    core::result::Result::Err(e) => {
-                        yield core::result::Result::Err(anyhow::anyhow!("Read error: {}", e));
-                        break;
-                    }
-                }
-            }
-        };
-
-        Ok(stream)
-    }
-}
-
-/// Decorator that converts a byte-stream extractor into a line-stream extractor.
-///
-/// Wraps any extractor that produces `u8` bytes and groups them into `String` lines
-/// separated by newlines. Uses buffered reading for efficiency.
-///
-/// # Example
-///
-/// ```rust
-/// use streamwerk::{Extract, ReadExtract, LinesExtract};
-/// use anyhow::Result;
-///
-/// # #[tokio::main]
-/// # async fn main() -> Result<()> {
-/// // Create a byte extractor from a string
-/// let data = b"line1\nline2\nline3\n";
-/// let reader = std::io::Cursor::new(data);
-/// let byte_extractor = ReadExtract;
-///
-/// // Wrap it with LinesExtract to get lines instead of bytes
-/// let line_extractor = LinesExtract::new(byte_extractor);
-/// let stream = line_extractor.extract(reader)?;
-///
-/// // Stream will yield: "line1", "line2", "line3"
-/// # Ok(())
-/// # }
-/// ```
-pub struct LinesExtract<E> {
-    inner: E,
-}
-
-impl<E> LinesExtract<E> {
-    /// Create a new LinesExtract that wraps a byte-stream extractor.
-    ///
-    /// # Arguments
-    ///
-    /// * `inner` - The byte-stream extractor to wrap
-    pub fn new(inner: E) -> Self {
-        Self { inner }
-    }
-}
-
-impl<E, Input> Extract<Input, String> for LinesExtract<E>
-where
-    E: Extract<Input, u8>,
-    Input: 'static,
-{
-    type StreamType = impl Stream<Item = Result<String>> + Send;
-
-    fn extract(&self, input: Input) -> Result<Self::StreamType> {
-        use tokio_stream::StreamExt;
-
-        let byte_stream = self.inner.extract(input)?;
-
-        let line_stream = async_stream::stream! {
-            let mut buffer = Vec::new();
-            let mut stream = std::pin::pin!(byte_stream);
-
-            while let Some(result) = stream.next().await {
-                match result {
-                    core::result::Result::Ok(byte) => {
-                        if byte == b'\n' {
-                            // Found newline - emit the line
-                            if let core::result::Result::Ok(line) = String::from_utf8(buffer.clone()) {
-                                yield core::result::Result::Ok(line);
-                            } else {
-                                yield core::result::Result::Err(anyhow::anyhow!("Invalid UTF-8 in line"));
-                            }
-                            buffer.clear();
-                        } else if byte != b'\r' {
-                            // Skip \r characters, accumulate others
-                            buffer.push(byte);
-                        }
-                    }
-                    core::result::Result::Err(e) => {
-                        yield core::result::Result::Err(e);
-                        break;
-                    }
-                }
-            }
-
-            // Emit any remaining content as the last line (file without trailing newline)
-            if !buffer.is_empty() {
-                if let core::result::Result::Ok(line) = String::from_utf8(buffer) {
-                    yield core::result::Result::Ok(line);
-                } else {
-                    yield core::result::Result::Err(anyhow::anyhow!("Invalid UTF-8 in final line"));
-                }
-            }
-        };
-
-        Ok(line_stream)
-    }
-}
-
-/// Extractor that reads from stdin byte-by-byte.
-///
-/// Wraps `ReadExtract` with `tokio::io::stdin()` as the input.
-/// Takes `()` as input since stdin is always available.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use streamwerk::{Extract, StdinExtract};
-/// use anyhow::Result;
-///
-/// # #[tokio::main]
-/// # async fn main() -> Result<()> {
-/// let extractor = StdinExtract;
-/// let stream = extractor.extract(())?;
-///
-/// // Stream will yield each byte from stdin
-/// # Ok(())
-/// # }
-/// ```
-pub struct StdinExtract;
-
-impl Extract<(), u8> for StdinExtract {
-    type StreamType = impl Stream<Item = Result<u8>> + Send;
-
-    fn extract(&self, _input: ()) -> Result<Self::StreamType> {
-        ReadExtract.extract(tokio::io::stdin())
-    }
-}

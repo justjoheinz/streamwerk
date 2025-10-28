@@ -50,8 +50,8 @@ pub mod prelude;
 
 // Re-export main types at the crate root for convenience
 pub use extract::{
-    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, LinesExtract, MapExtract,
-    ReadExtract, SkipExtractor, StdinExtract, TakeExtractor,
+    Extract, ExtractExt, FilterExtract, FlatMapExtract, FnExtract, MapExtract,
+    SkipExtractor, TakeExtractor,
 };
 pub use load::{BatchLoad, FilterLoad, FnLoad, Load, MapLoad, PrefixLoad, SuffixLoad};
 pub use pipeline::EtlPipeline;
